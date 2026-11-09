@@ -89,6 +89,24 @@ LINEの設定には2つの種類があり、混同しやすいので注意しま
 - A-4完了：リッチメニュー「ナインログ メインメニュー」（大・2段×2列、リンクは3.4章のとおり）を作成。スマホで4ボタンの表示を確認済み
 - A-5完了：スプレッドシート「ナインログ データ」に4シートと見出し行を作成
 - A-5追加完了：pitching_records シートを追加（計5シート）。teams のC列、batting_records と pitching_records のD列を書式なしテキストに設定済み
+- A-6完了：GitHubに公開リポジトリ `ninelog/ninelog` を作成し、`.gitignore` と `CLAUDE.md` を初回アップロード（2026-11-10）。`CLAUDE.local.md` は除外されていることを確認済み
+- B-1完了：スプレッドシートから GASプロジェクト「ナインログ」を作成（タイムゾーン Asia/Tokyo）。clasp で手元の `gas` フォルダとつなぎ、`clasp push` の成功を確認（2026-11-10）
+
+### 2.4 フォルダの構成
+```
+ninelog/
+├─ CLAUDE.md          設計書（公開）
+├─ CLAUDE.local.md    個人用メモ（公開しない）
+├─ .gitignore         GitHubに上げないファイルの一覧
+├─ .clasp.json        claspの接続先（スクリプトID）。公開しない
+├─ gas/               GAS（サーバー側）のプログラム。clasp push でGASへ送る
+│   ├─ appsscript.json  GASの設定（タイムゾーンなど）
+│   └─ Config.js        設定値（第6.3章）
+│   ※ ファイル名は英語にする。最初からあった「コード.js」は空だったため削除した
+└─ （C-1以降）index.html などの画面のファイル。GitHub Pagesで公開する
+```
+- `gas` フォルダの中身も GitHub に上げる（秘密の値は書かないため）。GitHub Pagesでも見える状態になるが、問題ない。
+- clasp はターミナルのタブで実行する（理由は CLAUDE.local.md）。
 
 ---
 
