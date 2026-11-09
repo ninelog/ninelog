@@ -1,0 +1,18 @@
+# GitHubに上げないファイルの一覧（CLAUDE.md 第5章）
+
+# clasp（GASをPCから操作する道具）の認証・接続情報
+.clasprc.json
+.clasp.json
+
+# 秘密の値を入れる可能性があるファイル
+.env
+*.secret
+
+# 個人用のメモ・設定（公開しない）
+CLAUDE.local.md
+.claude/settings.local.json
+
+# 道具が自動で作るファイル
+node_modules/
+Thumbs.db
+desktop.ini
