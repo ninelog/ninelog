@@ -23,3 +23,12 @@ const CONFIG = {
     PITCHING: 'pitching_records',
   },
 };
+
+/**
+ * スクリプトプロパティ（GASの中の隠し保管場所）から値を読む。
+ * 値そのものはプログラムに書かない（CLAUDE.md 第5章）。
+ * 設定場所：GASの編集画面 → 歯車「プロジェクトの設定」→「スクリプトプロパティ」
+ */
+function getLineLoginChannelId_() {
+  return PropertiesService.getScriptProperties().getProperty('LINE_LOGIN_CHANNEL_ID');
+}

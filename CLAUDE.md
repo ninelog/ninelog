@@ -91,6 +91,8 @@ LINEの設定には2つの種類があり、混同しやすいので注意しま
 - A-5追加完了：pitching_records シートを追加（計5シート）。teams のC列、batting_records と pitching_records のD列を書式なしテキストに設定済み
 - A-6完了：GitHubに公開リポジトリ `ninelog/ninelog` を作成し、`.gitignore` と `CLAUDE.md` を初回アップロード（2026-11-10）。`CLAUDE.local.md` は除外されていることを確認済み
 - B-1完了：スプレッドシートから GASプロジェクト「ナインログ」を作成（タイムゾーン Asia/Tokyo）。clasp で手元の `gas` フォルダとつなぎ、`clasp push` の成功を確認（2026-11-10）
+- B-2完了：スクリプトプロパティ `LINE_LOGIN_CHANNEL_ID` を設定。Webアプリとして公開（実行ユーザー：自分、アクセス：全員）。POSTで呼び出し、`channelIdConfigured: true` が返ることを確認（2026-11-10）
+  - WebアプリのURL：`https://script.google.com/macros/s/AKfycbwQ95a4VTZtdlzstnY9fliiDLgVeDZ66luyeAkW8m5aqe1WjAgIGJaiWp0TZN-bUhUb/exec`（画面のプログラムに書く。更新時もこのURLを保つ：8.3章）
 
 ### 2.4 フォルダの構成
 ```
@@ -101,7 +103,8 @@ ninelog/
 ├─ .clasp.json        claspの接続先（スクリプトID）。公開しない
 ├─ gas/               GAS（サーバー側）のプログラム。clasp push でGASへ送る
 │   ├─ appsscript.json  GASの設定（タイムゾーンなど）
-│   └─ Config.js        設定値（第6.3章）
+│   ├─ Config.js        設定値（第6.3章）とスクリプトプロパティの読み出し
+│   └─ Main.js          画面からの要求の入口（doPost）。B-4で本番の形にする
 │   ※ ファイル名は英語にする。最初からあった「コード.js」は空だったため削除した
 └─ （C-1以降）index.html などの画面のファイル。GitHub Pagesで公開する
 ```
@@ -463,6 +466,8 @@ GitHub Pagesを無料で使うため、リポジトリは公開設定になる�
 2. 種類の歯車から **「ウェブアプリ」** を選ぶ
 3. 実行するユーザー：**「自分」**、アクセスできるユーザー：**「全員」** を選ぶ（本人確認はプログラム側で行うため）
 4. **「デプロイ」** を押し、表示された「ウェブアプリのURL」を控える（画面のコードに書いてよい）
+
+**2回目以降の更新（URLを変えないため）**：`clasp push` しただけでは公開中のWebアプリは変わらない。**「デプロイ」→「デプロイを管理」** → 公開中のデプロイを選んで **鉛筆マーク（編集）** → バージョンを **「新バージョン」** → **「デプロイ」**。「新しいデプロイ」を押すとURLが変わってしまうので使わない。
 
 ### 8.4 GitHub Pages を有効にする（C-1）
 1. GitHubのリポジトリ（ninelog）を開き、**「Settings」**（設定）
