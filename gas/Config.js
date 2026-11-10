@@ -19,6 +19,9 @@ const CONFIG = {
   // 札を発行した元として正しい値
   LINE_ISSUER: 'https://access.line.me',
 
+  // 書き込みの順番待ち（LockService）で待つ最長の時間（ミリ秒＝1000分の1秒）。10秒（CLAUDE.md 第4.6章）
+  LOCK_WAIT_MS: 10000,
+
   // シートの名前（CLAUDE.md 第4章）
   SHEET: {
     USERS: 'users',

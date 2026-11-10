@@ -94,6 +94,7 @@ LINEの設定には2つの種類があり、混同しやすいので注意しま
 - B-2完了：スクリプトプロパティ `LINE_LOGIN_CHANNEL_ID` を設定。Webアプリとして公開（実行ユーザー：自分、アクセス：全員）。POSTで呼び出し、`channelIdConfigured: true` が返ることを確認（2026-11-10）
   - WebアプリのURL：`https://script.google.com/macros/s/AKfycbwQ95a4VTZtdlzstnY9fliiDLgVeDZ66luyeAkW8m5aqe1WjAgIGJaiWp0TZN-bUhUb/exec`（画面のプログラムに書く。更新時もこのURLを保つ：8.3章）
 - B-3完了：本人確認の部品 `Auth.js` を作成。`testVerifyIdToken` で4件すべてOK（空の札・未送信は TOKEN_MISSING、偽物の札はLINEに問い合わせて TOKEN_INVALID）。外部サービスへの接続を許可済み。本物の札での確認は C-2 で行う（2026-11-10）
+- B-4完了：共通の入口 `doPost`（要求の確認 → 本人確認 → 振り分け）とエラーの一覧を作成（3.5章）。`testDoPost` で13件すべてOK。公開中のWebアプリを同じURLのまま版2に更新し、外からの「札なし」「偽物の札」「JSONではない要求」が断られることを確認（2026-11-10）
 
 ### 2.4 フォルダの構成
 ```
@@ -105,9 +106,11 @@ ninelog/
 ├─ gas/               GAS（サーバー側）のプログラム。clasp push でGASへ送る
 │   ├─ appsscript.json  GASの設定（タイムゾーン、Webアプリの公開設定など）
 │   ├─ Config.js        設定値（第6.3章）とスクリプトプロパティの読み出し
-│   ├─ Main.js          画面からの要求の入口（doPost）。B-4で本番の形にする
+│   ├─ Main.js          画面からの要求の共通の入口（doPost）と操作の振り分け（第3.5章）
+│   ├─ Errors.js        エラーの理由の一覧（第3.5章）
 │   ├─ Auth.js          本人確認（IDトークンの検証。第3.1章）
-│   └─ AuthTest.js      Auth.js のテスト（GASの編集画面から実行する）
+│   ├─ AuthTest.js      Auth.js のテスト（GASの編集画面から実行する）
+│   └─ MainTest.js      Main.js のテスト
 │   ※ ファイル名は英語にする。最初からあった「コード.js」は空だったため削除した
 └─ （C-1以降）index.html などの画面のファイル。GitHub Pagesで公開する
 ```
@@ -152,6 +155,41 @@ ninelog/
 - 札には有効期限がある。期限切れの場合、GASは「期限切れ」のエラーを返す。
 - 画面は、そのエラーを受けたら自動で再ログイン（LIFFのlogin）して札を取り直し、操作を1回だけ再試行する。再試行も失敗したらエラーを表示する。
 - LIFFのスコープ（LINEに求める情報の範囲）は `openid` と `profile` のみ。
+
+### 3.5 要求と返事の形（API＝画面とGASの決まった受け渡し方）
+画面からGASへの要求は、すべて同じ入口（`doPost`）に、同じ形で送る。
+
+**要求（画面 → GAS）**
+```json
+{ "action": "操作の名前", "idToken": "LIFFで取得した札", "data": { "操作ごとの中身": "..." } }
+```
+
+**返事（GAS → 画面）**
+```json
+成功：{ "ok": true,  "data": { "操作ごとの結果": "..." } }
+失敗：{ "ok": false, "error": { "code": "理由の名前", "message": "日本語の説明" } }
+```
+
+- 処理の順番：① 要求の形を確かめる → ② 本人確認（どの操作でも必ず） → ③ 操作ごとの処理 → ④ 返事。
+- 操作の一覧は `Main.js` の `getActions_()` にまとめる。書き込む操作は `write: true` にして、順番待ち（LockService）をしてから処理する。
+- 画面は `error.code` を見て動きを変える。`TOKEN_EXPIRED` なら再ログインして1回だけやり直す（3.3章）。`BUSY` なら少し待ってやり直す。
+
+| 理由の名前（code） | 意味 | 定義場所 |
+|---|---|---|
+| `BAD_REQUEST` | 要求の形が正しくない | Errors.js |
+| `UNKNOWN_ACTION` | 知らない操作の名前 | Errors.js |
+| `BUSY` | 混み合っている（順番待ちが10秒を超えた） | Errors.js |
+| `INTERNAL` | サーバーの想定外のエラー | Errors.js |
+| `TOKEN_MISSING` | 札が無い | Auth.js |
+| `TOKEN_EXPIRED` | 札の期限切れ | Auth.js |
+| `TOKEN_INVALID` | 札が正しくない | Auth.js |
+| `CONFIG_MISSING` | スクリプトプロパティの設定漏れ | Auth.js |
+| `LINE_UNAVAILABLE` | LINEと通信できない | Auth.js |
+
+**今ある操作**
+| action | 内容 | 書き込み | 作った手順 |
+|---|---|---|---|
+| `whoami` | 自分のLINEユーザーIDと表示名を返す | しない | B-4 |
 
 ### 3.4 画面の構成（ページとリッチメニューの対応）
 LIFFアプリは1つだけ使い、URLの後ろにページ名を付けて画面を分ける。
@@ -473,6 +511,8 @@ GitHub Pagesを無料で使うため、リポジトリは公開設定になる�
 4. **「デプロイ」** を押し、表示された「ウェブアプリのURL」を控える（画面のコードに書いてよい）
 
 **2回目以降の更新（URLを変えないため）**：`clasp push` しただけでは公開中のWebアプリは変わらない。**「デプロイ」→「デプロイを管理」** → 公開中のデプロイを選んで **鉛筆マーク（編集）** → バージョンを **「新バージョン」** → **「デプロイ」**。「新しいデプロイ」を押すとURLが変わってしまうので使わない。
+
+**claspで更新する方法（開発パートナーが使う）**：ターミナルのタブで `clasp push` のあと、`clasp deploy --deploymentId 【WebアプリURLの /s/ と /exec の間の文字列】 --description "説明"` を実行すると、同じURLのまま新しい版に切り替わる（B-4で使用、版2）。説明は半角英数字で書く。
 
 ### 8.4 GitHub Pages を有効にする（C-1）
 1. GitHubのリポジトリ（ninelog）を開き、**「Settings」**（設定）
