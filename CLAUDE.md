@@ -95,6 +95,7 @@ LINEの設定には2つの種類があり、混同しやすいので注意しま
   - WebアプリのURL：`https://script.google.com/macros/s/AKfycbwQ95a4VTZtdlzstnY9fliiDLgVeDZ66luyeAkW8m5aqe1WjAgIGJaiWp0TZN-bUhUb/exec`（画面のプログラムに書く。更新時もこのURLを保つ：8.3章）
 - B-3完了：本人確認の部品 `Auth.js` を作成。`testVerifyIdToken` で4件すべてOK（空の札・未送信は TOKEN_MISSING、偽物の札はLINEに問い合わせて TOKEN_INVALID）。外部サービスへの接続を許可済み。本物の札での確認は C-2 で行う（2026-11-10）
 - B-4完了：共通の入口 `doPost`（要求の確認 → 本人確認 → 振り分け）とエラーの一覧を作成（3.5章）。`testDoPost` で13件すべてOK。公開中のWebアプリを同じURLのまま版2に更新し、外からの「札なし」「偽物の札」「JSONではない要求」が断られることを確認（2026-11-10）
+- B-5完了：入力チェックの部品 `Validation.js` を作成（第4.5章。利用者が「安打＋三振 ≤ 打数」を追加）。`testValidation` で33件すべてOK。公開中のWebアプリは版4（2026-11-10）
 
 ### 2.4 フォルダの構成
 ```
@@ -109,8 +110,10 @@ ninelog/
 │   ├─ Main.js          画面からの要求の共通の入口（doPost）と操作の振り分け（第3.5章）
 │   ├─ Errors.js        エラーの理由の一覧（第3.5章）
 │   ├─ Auth.js          本人確認（IDトークンの検証。第3.1章）
+│   ├─ Validation.js    入力チェック（第4.5章）
 │   ├─ AuthTest.js      Auth.js のテスト（GASの編集画面から実行する）
-│   └─ MainTest.js      Main.js のテスト
+│   ├─ MainTest.js      Main.js のテスト
+│   └─ ValidationTest.js  Validation.js のテスト
 │   ※ ファイル名は英語にする。最初からあった「コード.js」は空だったため削除した
 └─ （C-1以降）index.html などの画面のファイル。GitHub Pagesで公開する
 ```
@@ -168,6 +171,8 @@ ninelog/
 ```json
 成功：{ "ok": true,  "data": { "操作ごとの結果": "..." } }
 失敗：{ "ok": false, "error": { "code": "理由の名前", "message": "日本語の説明" } }
+入力チェックの失敗：{ "ok": false, "error": { "code": "VALIDATION_ERROR", "message": "入力内容に誤りがあります",
+                     "details": [ { "field": "hits", "message": "安打（4）が打数（3）より多くなっています" } ] } }
 ```
 
 - 処理の順番：① 要求の形を確かめる → ② 本人確認（どの操作でも必ず） → ③ 操作ごとの処理 → ④ 返事。
@@ -178,6 +183,7 @@ ninelog/
 |---|---|---|
 | `BAD_REQUEST` | 要求の形が正しくない | Errors.js |
 | `UNKNOWN_ACTION` | 知らない操作の名前 | Errors.js |
+| `VALIDATION_ERROR` | 入力された成績が正しくない（`details` に項目ごとの説明。画面は該当の入力欄の近くに表示する） | Errors.js |
 | `BUSY` | 混み合っている（順番待ちが10秒を超えた） | Errors.js |
 | `INTERNAL` | サーバーの想定外のエラー | Errors.js |
 | `TOKEN_MISSING` | 札が無い | Auth.js |
@@ -292,10 +298,20 @@ LIFFアプリは1つだけ使い、URLの後ろにページ名を付けて画面
 - 打数 ≥ 安打
 - 打席 ≥ 打数 ＋ 四球 ＋ 死球 ＋ 犠打 ＋ 犠飛
 - 安打 ≥ 二塁打 ＋ 三塁打 ＋ 本塁打
+- 安打 ＋ 三振 ≤ 打数（1打数の結果は、安打か三振のどちらか一方にしかならないため。2026-11-10 利用者が追加）
 - 試合日は正しい日付の形式
 - 入力できるのは、自分が所属しているチームだけ
 - 投手：「回」は0以上の整数、「アウト数」は0〜2の整数、自責点は0以上の整数
 - 投手：保存する `outs` ＝ 回×3＋アウト数
+
+B-5で開発パートナーが足したルール（変更する場合は知らせてもらう）：
+- 三振 ≤ 打数（三振は必ず打数に数えるため）
+- 1試合の数は99以下（打ち間違いで「100」などが入るのを防ぐ。`Config.js` の `MAX_COUNT_PER_GAME`）
+- 試合日は 2000-01-01 から今日（日本時間）まで。未来の日付は入力できない（`Config.js` の `MIN_GAME_DATE`）
+- 数字は「3」のような数字の文字でも受け付け、保存するときは数に直す
+- 画面から送られてきた `user_id` などの余計な項目は使わない（保存する項目だけを取り出す）
+
+チェックの部品は `gas/Validation.js`（`validateBattingInput_`・`validatePitchingInput_`）。正しくない項目があれば、`VALIDATION_ERROR` の返事に項目ごとの説明（`details`）を付けて返す（3.5章）。
 
 ### 4.6 同時書き込みと記録ID
 - 書き込み（登録・修正・削除・参加）は、GASの LockService（同時に1つの処理しか書き込ませない鍵の仕組み）で排他制御する。鍵が取れない場合は「混み合っています」と返し、画面は少し待って再試行する。

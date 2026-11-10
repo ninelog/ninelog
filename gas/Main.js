@@ -115,7 +115,9 @@ function handleWhoami_(data, user) {
  */
 function toErrorBody_(err) {
   if (err instanceof AuthError || err instanceof AppError) {
-    return { code: err.code, message: err.message };
+    const body = { code: err.code, message: err.message };
+    if (err.details) body.details = err.details; // 入力チェックの、項目ごとの説明
+    return body;
   }
   console.error('想定外のエラー：' + (err && err.stack ? err.stack : err));
   return { code: APP_ERROR.INTERNAL, message: 'サーバーで想定外のエラーが起きました' };

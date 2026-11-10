@@ -19,6 +19,13 @@ const CONFIG = {
   // 札を発行した元として正しい値
   LINE_ISSUER: 'https://access.line.me',
 
+  // 入力チェック（CLAUDE.md 第4.5章）
+  // 1試合で入力できる数の上限（打ち間違いで「100」などが入るのを防ぐ）
+  MAX_COUNT_PER_GAME: 99,
+  // 入力できる試合日の範囲：この日から、今日（日本時間）まで
+  MIN_GAME_DATE: '2000-01-01',
+  TIME_ZONE: 'Asia/Tokyo',
+
   // 書き込みの順番待ち（LockService）で待つ最長の時間（ミリ秒＝1000分の1秒）。10秒（CLAUDE.md 第4.6章）
   LOCK_WAIT_MS: 10000,
 
