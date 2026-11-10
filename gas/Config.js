@@ -14,6 +14,11 @@ const CONFIG = {
   // 防御率の計算に使うイニング数（7イニング制）
   INNINGS_PER_GAME: 7,
 
+  // LINEのIDトークン（本人確認の札）を確かめる窓口（CLAUDE.md 第3.1章）
+  LINE_VERIFY_URL: 'https://api.line.me/oauth2/v2.1/verify',
+  // 札を発行した元として正しい値
+  LINE_ISSUER: 'https://access.line.me',
+
   // シートの名前（CLAUDE.md 第4章）
   SHEET: {
     USERS: 'users',
