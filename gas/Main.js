@@ -30,6 +30,9 @@ function doPost(e) {
 function getActions_() {
   return {
     whoami: { handler: handleWhoami_, write: false },
+    updateMyName: { handler: handleUpdateMyName_, write: true },
+    createTeam: { handler: handleCreateTeam_, write: true },
+    listMyTeams: { handler: handleListMyTeams_, write: false },
   };
 }
 
@@ -77,6 +80,17 @@ function dispatch_(request, user) {
   }
 
   const action = actions[request.action];
+
+  // 本人を users シートに自動登録し（初めての人のとき）、表示名と管理者かどうかを付け足す
+  const profile = ensureUser_(user);
+  user = {
+    userId: user.userId,
+    name: user.name,
+    displayName: profile.displayName,
+    nameSource: profile.nameSource,
+    isAdmin: isAdmin_(user.userId),
+  };
+
   if (action.write) {
     return withLock_(function () {
       return action.handler(request.data, user);
@@ -88,6 +102,7 @@ function dispatch_(request, user) {
 /**
  * 書き込みの順番待ちをしてから fn を実行する（第4.6章）。
  * 同時に2人が書き込んで、データが壊れたり重なったりするのを防ぐ。
+ * 注意：withLock_ の中で、もう一度 withLock_ を呼ばない（入れ子にしない）。
  */
 function withLock_(fn) {
   const lock = LockService.getScriptLock();
@@ -103,10 +118,17 @@ function withLock_(fn) {
 
 /**
  * 操作：whoami（自分の確認）
- * 本人確認で確かめたLINEユーザーIDと表示名を返す。C-2の動作確認でも使う。
+ * 本人確認で確かめたLINEユーザーID、LINEの名前、表示名、管理者かどうかを返す。
+ * C-2の動作確認と、管理者の登録（CLAUDE.md 8.7章）で使う。
  */
 function handleWhoami_(data, user) {
-  return { userId: user.userId, name: user.name };
+  return {
+    userId: user.userId,
+    lineName: user.name,
+    displayName: user.displayName,
+    nameSource: user.nameSource,
+    isAdmin: user.isAdmin,
+  };
 }
 
 /**

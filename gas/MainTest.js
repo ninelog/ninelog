@@ -9,6 +9,16 @@
  *       （本物の札は C-2 まで手に入らないため）
  */
 function testDoPost() {
+  cleanupTestData_();
+  try {
+    runDoPostTests_();
+  } finally {
+    // whoami などで、仮の人（Utest…）が users シートに登録されるので、最後に消す
+    cleanupTestData_();
+  }
+}
+
+function runDoPostTests_() {
   const results = [];
 
   // --- 前半：doPost 全体 ---
