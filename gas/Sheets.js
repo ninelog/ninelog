@@ -11,6 +11,13 @@ const SHEET_COLUMNS = {
   teams: ['team_id', 'team_number', 'team_name', 'passphrase_hash', 'passphrase_salt', 'created_by', 'created_at', 'updated_at'],
   memberships: ['membership_id', 'user_id', 'team_id', 'role', 'joined_at'],
   join_attempts: ['user_id', 'fail_count', 'locked_until', 'updated_at'],
+  batting_records: ['record_id', 'user_id', 'team_id', 'game_date', 'plate_appearances', 'at_bats', 'hits',
+    'doubles', 'triples', 'home_runs', 'rbis', 'walks', 'hbp', 'sacrifice_bunts', 'sacrifice_flies',
+    'strikeouts', 'stolen_bases', 'created_at', 'updated_at', 'deleted_at'],
+  pitching_records: ['record_id', 'user_id', 'team_id', 'game_date', 'outs', 'earned_runs',
+    'created_at', 'updated_at', 'deleted_at'],
+  record_changes: ['change_id', 'changed_at', 'user_id', 'record_type', 'record_id', 'action',
+    'field', 'old_value', 'new_value'],
 };
 
 /** シートを取り出す。見つからなければエラー */
@@ -62,16 +69,24 @@ function findRecord_(name, predicate) {
   return null;
 }
 
-/** 1行を一番下に足す。record に無い列は空のまま */
+/**
+ * 1行を一番下に足す。record に無い列は空のまま。
+ * 書き込む前に、マスごとの表示形式を決める（cellFormat_）。
+ * こうしないと、スプレッドシートが「2026-11-10」を日付に、「0123」を数の123に、勝手に変えてしまう
+ * （列を書式なしテキストにしてあっても、appendRow で足した行には効かないことがある。B-7で確認）。
+ */
 function appendRecord_(name, record) {
   const sheet = getSheet_(name);
   const header = readHeader_(sheet, name);
-  sheet.appendRow(header.map(function (col) {
+  const values = header.map(function (col) {
     return record[col] === undefined || record[col] === null ? '' : record[col];
-  }));
+  });
+  const range = sheet.getRange(sheet.getLastRow() + 1, 1, 1, header.length);
+  range.setNumberFormats([values.map(cellFormat_)]);
+  range.setValues([values]);
 }
 
-/** 行番号 row の、changes に書いた列だけを書き換える */
+/** 行番号 row の、changes に書いた列だけを書き換える（表示形式も appendRecord_ と同じ決め方） */
 function updateRecord_(name, row, changes) {
   const sheet = getSheet_(name);
   const header = readHeader_(sheet, name);
@@ -80,6 +95,21 @@ function updateRecord_(name, row, changes) {
     if (index === -1) {
       throw new AppError(APP_ERROR.INTERNAL, 'シート「' + name + '」に見出し「' + col + '」がありません');
     }
-    sheet.getRange(row, index + 1).setValue(changes[col] === null ? '' : changes[col]);
+    const value = changes[col] === null || changes[col] === undefined ? '' : changes[col];
+    const cell = sheet.getRange(row, index + 1);
+    cell.setNumberFormat(cellFormat_(value));
+    cell.setValue(value);
   });
+}
+
+/**
+ * 値の種類から、マスの表示形式を決める。
+ * - 文字（空も含む）：書式なしテキスト（'@'）。書いたとおりの文字のまま残る
+ * - 日時：「2026-11-10 21:05:00」の形
+ * - 数：整数の形（このアプリの数は、どれも整数）
+ */
+function cellFormat_(value) {
+  if (Object.prototype.toString.call(value) === '[object Date]') return 'yyyy-mm-dd hh:mm:ss';
+  if (typeof value === 'number') return '0';
+  return '@';
 }

@@ -27,6 +27,28 @@ function cleanupTestData_() {
   });
   deleteRowsWhere_(CONFIG.SHEET.USERS, function (r) { return isTestUserId_(r.user_id); });
   deleteRowsWhere_(CONFIG.SHEET.JOIN_ATTEMPTS, function (r) { return isTestUserId_(r.user_id); });
+  [CONFIG.SHEET.BATTING, CONFIG.SHEET.PITCHING].forEach(function (name) {
+    deleteRowsWhere_(name, function (r) { return isTestUserId_(r.user_id) || testTeamIds.indexOf(r.team_id) !== -1; });
+  });
+  // 変更の記録は、ふだんは消さない決まり（4.5b章）。消すのは、自動テストの仮の人が作った行だけ
+  deleteRowsWhere_(CONFIG.SHEET.RECORD_CHANGES, function (r) { return isTestUserId_(r.user_id); });
+}
+
+/**
+ * 自動テストで、操作の担当の関数を本番と同じ流れ（自動登録 → 順番待ち → 処理）で呼ぶ。
+ * options（today など）を渡せる。断られたら { code, message } を返す。
+ */
+function callAsTest_(handler, data, user, options, write) {
+  if (!isTestUserId_(user.userId)) {
+    throw new Error('自動テストでは、仮の人（Utest…）だけを使います');
+  }
+  ensureUser_(user);
+  const run = function () { return handler(data, { userId: user.userId, isAdmin: Boolean(user.isAdmin) }, options); };
+  try {
+    return write === false ? run() : withLock_(run);
+  } catch (err) {
+    return { code: err.code || ('想定外のエラー：' + err.message), message: err.message, details: err.details || null };
+  }
 }
 
 /**

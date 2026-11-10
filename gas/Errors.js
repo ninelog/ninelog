@@ -9,7 +9,8 @@ const APP_ERROR = {
   VALIDATION_ERROR: 'VALIDATION_ERROR', // 入力された成績の数字や日付が正しくない（details に項目ごとの説明）
   JOIN_FAILED: 'JOIN_FAILED',       // チーム番号か合言葉が違う（info.remainingAttempts に残りの回数）
   JOIN_LOCKED: 'JOIN_LOCKED',       // 間違えすぎて、しばらく参加の入力ができない（info.minutesLeft に残りの分）
-  FORBIDDEN: 'FORBIDDEN',           // その操作をする権限がない（例：代表者以外が合言葉を変えようとした）
+  FORBIDDEN: 'FORBIDDEN',           // その操作をする権限がない（例：代表者以外が合言葉を変えようとした、他人の記録を直そうとした）
+  EDIT_PERIOD_OVER: 'EDIT_PERIOD_OVER', // 成績の入力・修正・削除の期限（試合日から30日）を過ぎている
   BUSY: 'BUSY',                     // ほかの書き込みが終わるのを待ちきれなかった（少し待って再試行）
   INTERNAL: 'INTERNAL',             // サーバー側の想定外のエラー
 };
