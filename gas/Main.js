@@ -33,6 +33,8 @@ function getActions_() {
     updateMyName: { handler: handleUpdateMyName_, write: true },
     createTeam: { handler: handleCreateTeam_, write: true },
     listMyTeams: { handler: handleListMyTeams_, write: false },
+    joinTeam: { handler: handleJoinTeam_, write: true },
+    changePassphrase: { handler: handleChangePassphrase_, write: true },
   };
 }
 
@@ -139,6 +141,7 @@ function toErrorBody_(err) {
   if (err instanceof AuthError || err instanceof AppError) {
     const body = { code: err.code, message: err.message };
     if (err.details) body.details = err.details; // 入力チェックの、項目ごとの説明
+    if (err.info) body.info = err.info;          // 残りの回数など、画面が使う追加の情報
     return body;
   }
   console.error('想定外のエラー：' + (err && err.stack ? err.stack : err));

@@ -57,6 +57,35 @@ function deleteRowsWhere_(name, predicate) {
     .forEach(function (row) { sheet.deleteRow(row); });
 }
 
+/**
+ * 自動テストでチームに参加する（自動テスト専用の番号のチームだけ）。
+ * now を渡すと「今」をその日時として扱う（1時間後などを試すため）。
+ * @return {Object} 成功したときの返事、または断られたときの { code, message, info }
+ */
+function joinTestTeam_(user, teamNumber, passphrase, now) {
+  if (!isTestUserId_(user.userId)) {
+    throw new Error('自動テストでは、仮の人（Utest…）だけを使います');
+  }
+  ensureUser_(user);
+  try {
+    return withLock_(function () {
+      return handleJoinTeam_(
+        { team_number: teamNumber, passphrase: passphrase },
+        { userId: user.userId },
+        { forAutomatedTest: true, now: now }
+      );
+    });
+  } catch (err) {
+    return { code: err.code || ('想定外のエラー：' + err.message), message: err.message, info: err.info || null };
+  }
+}
+
+/** 仮の人の、間違えた回数の記録（無ければ 0） */
+function testFailCount_(userId) {
+  const r = findRecord_(CONFIG.SHEET.JOIN_ATTEMPTS, function (x) { return x.user_id === userId; });
+  return r ? Number(r.fail_count) || 0 : 0;
+}
+
 /** 結果の一覧を実行ログに出す（OK／NG と合計） */
 function logResults_(results) {
   let passed = 0;
