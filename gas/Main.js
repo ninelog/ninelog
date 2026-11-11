@@ -44,6 +44,10 @@ function getActions_() {
     updatePitchingRecord: { handler: handleUpdatePitchingRecord_, write: true },
     deletePitchingRecord: { handler: handleDeletePitchingRecord_, write: true },
     getMyStats: { handler: handleGetMyStats_, write: false },
+    createGame: { handler: handleCreateGame_, write: true },
+    listTeamGames: { handler: handleListTeamGames_, write: false },
+    updateGame: { handler: handleUpdateGame_, write: true },
+    deleteGame: { handler: handleDeleteGame_, write: true },
   };
 }
 

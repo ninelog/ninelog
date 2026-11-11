@@ -17,7 +17,7 @@ function testBattingRecords() {
     cleanupTestData_();
   }
   const realAfter = countRealRows_();
-  results.push({ title: '本物の行（チーム・打撃・投手・変更の記録）の数が、テストの前後で変わらない', expected: realBefore, actual: realAfter });
+  results.push({ title: '本物の行（チーム・試合・打撃・投手・変更の記録）の数が、テストの前後で変わらない', expected: realBefore, actual: realAfter });
   logResults_(results);
 }
 
@@ -149,6 +149,7 @@ function countRealRows_() {
   const count = function (name, isTest) { return readRecords_(name).filter(function (r) { return !isTest(r); }).length; };
   return [
     count(CONFIG.SHEET.TEAMS, function (r) { return isTestTeamNumber_(r.team_number); }),
+    count(CONFIG.SHEET.GAMES, function (r) { return isTestUserId_(r.created_by); }),
     count(CONFIG.SHEET.BATTING, function (r) { return isTestUserId_(r.user_id); }),
     count(CONFIG.SHEET.PITCHING, function (r) { return isTestUserId_(r.user_id); }),
     count(CONFIG.SHEET.RECORD_CHANGES, function (r) { return isTestUserId_(r.user_id); }),

@@ -27,6 +27,7 @@ function cleanupTestData_() {
   });
   deleteRowsWhere_(CONFIG.SHEET.USERS, function (r) { return isTestUserId_(r.user_id); });
   deleteRowsWhere_(CONFIG.SHEET.JOIN_ATTEMPTS, function (r) { return isTestUserId_(r.user_id); });
+  deleteRowsWhere_(CONFIG.SHEET.GAMES, function (r) { return isTestUserId_(r.created_by) || testTeamIds.indexOf(r.team_id) !== -1; });
   [CONFIG.SHEET.BATTING, CONFIG.SHEET.PITCHING].forEach(function (name) {
     deleteRowsWhere_(name, function (r) { return isTestUserId_(r.user_id) || testTeamIds.indexOf(r.team_id) !== -1; });
   });

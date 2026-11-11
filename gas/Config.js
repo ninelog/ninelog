@@ -35,6 +35,10 @@ const CONFIG = {
   // 成績の入力・修正・削除ができる期間：試合日（0日目）から、この日数目まで（CLAUDE.md 第4.5b章）
   RECORD_EDIT_DAYS: 30,
 
+  // 試合（CLAUDE.md 11.1章）
+  GAME_NUMBER_MAX: 9,   // 第何試合の上限（1〜9）
+  OPPONENT_MAX: 30,     // 対戦相手の最大文字数
+
   // チームと参加（CLAUDE.md 第4.8章）
   RESERVED_TEAM_NUMBER_MAX: 1998, // 1〜この番号は、管理者が人の手でテストするための予約番号。管理者だけが作れる
   TEST_TEAM_NUMBER_MIN: 999999900, // ここから下の MAX までは、プログラムの自動テスト専用。
@@ -55,6 +59,7 @@ const CONFIG = {
   SHEET: {
     USERS: 'users',
     TEAMS: 'teams',
+    GAMES: 'games',
     MEMBERSHIPS: 'memberships',
     BATTING: 'batting_records',
     PITCHING: 'pitching_records',
