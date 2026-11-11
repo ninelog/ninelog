@@ -8,17 +8,20 @@
  *   直すのも消すのも、試合日から30日以内（日付を変えるときは前後とも）。
  * - 消せるのは、有効な成績が1件も付いていないときだけ（論理削除）。
  * - 直す・消すは record_changes に記録する（record_type が game）。
+ * - 大会（11.7章のC）：試合に大会を1つだけ付けられる（任意）。選べるのは、その操作をする人
+ *   （作るときは作る人、直すときは直す人）が参加している大会だけ。外す（空にする）のは誰でもよい。
+ *   大会を付けて試合区分が空なら、区分は「公式戦」にする（11.7章のD）。
  *
  * options（自動テストのときだけ。画面からは渡せない）：today（今日の日付を決め打ち）
  */
 
 const GAME_CATEGORIES = ['official', 'practice', 'other']; // 公式戦・練習試合・その他（11.7章のD）
 const GAME_RESULTS = ['win', 'lose', 'draw'];               // 勝ち・負け・引き分け
-const GAME_EDIT_FIELDS = ['game_date', 'game_number', 'opponent', 'category', 'result'];
+const GAME_EDIT_FIELDS = ['tournament_id', 'game_date', 'game_number', 'opponent', 'category', 'result'];
 
 /**
  * 操作：createGame（試合を作る）
- * data: { team_id, game_date, game_number（省略するとその日の次の番号）, opponent, category, result }
+ * data: { team_id, tournament_id（省略可）, game_date, game_number（省略するとその日の次の番号）, opponent, category, result }
  */
 function handleCreateGame_(data, user, options) {
   const today = todayText_(options);
@@ -28,6 +31,10 @@ function handleCreateGame_(data, user, options) {
   }
   if (!isMemberOfTeamType_(user.userId, v.team_id)) {
     throw new AppError(APP_ERROR.FORBIDDEN, '所属していないチームの試合は作れません');
+  }
+  if (v.tournament_id) {
+    assertMyTournament_(user.userId, v.tournament_id);
+    if (!v.category) v.category = 'official';
   }
 
   const sameDay = activeGamesOf_(v.team_id).filter(function (g) { return dateText_(g.game_date) === v.game_date; });
@@ -44,7 +51,7 @@ function handleCreateGame_(data, user, options) {
   const game = {
     game_id: Utilities.getUuid(),
     team_id: v.team_id,
-    tournament_id: '',
+    tournament_id: v.tournament_id,
     game_date: v.game_date,
     game_number: v.game_number,
     opponent: v.opponent,
@@ -91,6 +98,10 @@ function handleListTeamGames_(data, user, options) {
   const result = {
     games: games.map(function (g) { return toGameSummary_(g, user, today); }),
     opponentSuggestions: opponentSuggestions_(all),
+    // 試合に付けられる大会（本人が参加している大会）
+    myTournaments: handleListMyTeams_({}, user).teams
+      .filter(function (t) { return t.orgType === ORG_TYPE.TOURNAMENT; })
+      .map(function (t) { return { tournamentId: t.teamId, tournamentNumber: t.teamNumber, tournamentName: t.teamName }; }),
   };
   if (date) result.nextGameNumber = nextGameNumber_(games);
   return result;
@@ -108,8 +119,13 @@ function handleUpdateGame_(data, user, options) {
   }
   const v = validateGameInput_(Object.assign({}, data, { team_id: String(current.team_id) }), today);
   if (v.game_number === null) v.game_number = Number(current.game_number);
+  if (data.tournament_id === undefined) v.tournament_id = String(current.tournament_id || ''); // 送られなければ今のまま
   if (!isWithinEditPeriod_(v.game_date, today)) {
     throw editPeriodOverError_();
+  }
+  // 大会を「別の大会に変える／新しく付ける」ときは、直す人が参加している大会だけ。外す・そのままは自由
+  if (v.tournament_id && v.tournament_id !== String(current.tournament_id || '')) {
+    assertMyTournament_(user.userId, v.tournament_id);
   }
   const clash = activeGamesOf_(current.team_id).some(function (g) {
     return g.game_id !== current.game_id && dateText_(g.game_date) === v.game_date && Number(g.game_number) === v.game_number;
@@ -168,6 +184,7 @@ function validateGameInput_(data, today) {
   const errors = [];
   const v = {
     team_id: checkTeamId_(data.team_id, errors),
+    tournament_id: '',
     game_date: checkGameDate_(data.game_date, errors, { today: today }),
     game_number: null,
     opponent: '',
@@ -192,6 +209,13 @@ function validateGameInput_(data, today) {
       v.opponent = opponent;
     }
   }
+  if (data.tournament_id !== undefined && data.tournament_id !== null && data.tournament_id !== '') {
+    if (typeof data.tournament_id !== 'string' || data.tournament_id.length > 64) {
+      errors.push({ field: 'tournament_id', message: '参加している大会だけを選べます' });
+    } else {
+      v.tournament_id = data.tournament_id;
+    }
+  }
   v.category = checkChoice_(data.category, GAME_CATEGORIES, 'category', '試合区分は「公式戦」「練習試合」「その他」から選んでください', errors);
   v.result = checkChoice_(data.result, GAME_RESULTS, 'result', '勝敗は「勝ち」「負け」「引き分け」から選んでください', errors);
 
@@ -207,6 +231,21 @@ function checkChoice_(value, choices, field, message, errors) {
     return '';
   }
   return value;
+}
+
+/**
+ * 本人が参加している大会か確かめる（チームのIDや、存在しないIDも同じ返事）。
+ */
+function assertMyTournament_(userId, tournamentId) {
+  const ok = Boolean(findMembership_(userId, tournamentId)) && (function () {
+    const t = findRecord_(CONFIG.SHEET.TEAMS, function (x) { return x.team_id === tournamentId; });
+    return Boolean(t) && orgTypeOf_(t) === ORG_TYPE.TOURNAMENT;
+  })();
+  if (!ok) {
+    throw new AppError(APP_ERROR.VALIDATION_ERROR, '入力内容に誤りがあります', [
+      { field: 'tournament_id', message: '参加している大会だけを選べます' },
+    ]);
+  }
 }
 
 function gameNumberError_(message) {
@@ -273,13 +312,23 @@ function opponentSuggestions_(games) {
   return names;
 }
 
-/** 画面に返す試合の情報（誰が作ったかのIDは返さず、本人が作ったかどうかだけ） */
+/**
+ * 画面に返す試合の情報（誰が作ったかのIDは返さず、本人が作ったかどうかだけ）
+ * tournament_name：付いている大会の名前。in_my_tournament：本人がその大会に参加しているか
+ *   （参加していなければ、この試合の成績は大会のランキングに載らない。11.7章のK）
+ */
 function toGameSummary_(game, user, today) {
   const gameDate = dateText_(game.game_date);
+  const tournamentId = String(game.tournament_id || '');
+  const tournament = tournamentId
+    ? findRecord_(CONFIG.SHEET.TEAMS, function (t) { return t.team_id === tournamentId; })
+    : null;
   return {
     game_id: game.game_id,
     team_id: game.team_id,
-    tournament_id: game.tournament_id || '',
+    tournament_id: tournamentId,
+    tournament_name: tournament ? String(tournament.team_name) : '',
+    in_my_tournament: Boolean(tournamentId) && Boolean(findMembership_(user.userId, tournamentId)),
     game_date: gameDate,
     game_number: Number(game.game_number),
     opponent: String(game.opponent || ''),
