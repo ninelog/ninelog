@@ -101,6 +101,7 @@ LINEの設定には2つの種類があり、混同しやすいので注意しま
 - B-6追加完了：チームへの参加（10回で1時間止める）と合言葉の変更（代表者のみ）。`testJoin` で33件すべてOK、テスト後のシートは見出しだけに戻ることを確認。公開中のWebアプリは版7（2026-11-11）
 - 2026-11-11：record_changes シートを追加（計7シート。H列・I列は書式なしテキスト）。B-7の仕様（4.5b章）の細部1〜6を利用者が了承
 - B-7完了：打撃成績の登録・一覧・修正・削除（本人だけ・試合日から30日以内・修正と削除は record_changes に記録）。途中で「文字が勝手に日付や数に変わる」不具合を見つけて直した（4.7章）。`testBattingRecords` 44件・`testTeams` 59件・`testJoin` 33件すべてOK、テスト後のシートは見出しだけに戻ることを確認。公開中のWebアプリは版9（2026-11-11）
+- B-8完了：投手成績の登録・一覧・修正・削除（B-7と同じルール。画面は「回」と「アウト数」で入力し、outs で保存・記録）。`testPitchingRecords` 39件・`testBattingRecords` 44件すべてOK、テスト後のシートは見出しだけに戻ることを確認。公開中のWebアプリは版10（2026-11-11）
 
 ### 2.4 フォルダの構成
 ```
@@ -129,7 +130,8 @@ ninelog/
 │   ├─ ValidationTest.js  Validation.js のテスト
 │   ├─ TeamsTest.js     B-6のテスト（本物のシートに仮の行を書いて確かめ、最後に消す）
 │   ├─ JoinTest.js      B-6追加のテスト
-│   └─ BattingRecordsTest.js  B-7のテスト
+│   ├─ BattingRecordsTest.js  B-7のテスト
+│   └─ PitchingRecordsTest.js B-8のテスト
 │   ※ ファイル名は英語にする。最初からあった「コード.js」は空だったため削除した
 └─ （C-1以降）index.html などの画面のファイル。GitHub Pagesで公開する
 ```
@@ -232,9 +234,15 @@ ninelog/
 | `listMyBattingRecords` | 自分の打撃成績の一覧（試合日の新しい順。削除済みは出さない） | `team_id`（省略可） | しない | B-7 |
 | `updateBattingRecord` | 自分の打撃成績を直す（変わった項目を record_changes に記録） | `record_id`＋登録と同じ全項目 | する | B-7 |
 | `deleteBattingRecord` | 自分の打撃成績を消す（論理削除。record_changes に記録） | `record_id` | する | B-7 |
+| `addPitchingRecord` | 投手成績を1試合分登録する（打撃と同じルール） | `team_id`・`game_date`・`innings`（回）・`partial_outs`（アウト数0〜2）・`earned_runs` | する | B-8 |
+| `listMyPitchingRecords` | 自分の投手成績の一覧 | `team_id`（省略可） | しない | B-8 |
+| `updatePitchingRecord` | 自分の投手成績を直す | `record_id`＋登録と同じ全項目 | する | B-8 |
+| `deletePitchingRecord` | 自分の投手成績を消す | `record_id` | する | B-8 |
 
 - 失敗の返事には、画面が使う追加の情報 `info` が付くことがある（例：`{ "remainingAttempts": 7 }`）。
 - 成績の記録は、入力と同じ列の名前で返す（修正の画面にそのまま入れられるように）。さらに `editable`（今日、修正・削除ができるか）と `editable_until`（修正・削除ができる最後の日）を付ける。
+- 投手の記録には、保存している `outs` に加えて、修正の画面に入れる `innings`（回）・`partial_outs`（アウト数）と、表示用の `innings_text`（例：「5回1/3」）を付ける。
+- 投手の変更の記録（record_changes）は、投球回をアウト数の合計 `outs` で書く（例：16 → 18 は「5回1/3 → 6回」）。
 
 - どの操作でも、本人確認のあとに、本人を `users` シートに自動登録する（初めての人のとき。4.8章）。
 - 画面への返事には、合言葉のハッシュや塩を含めない。

@@ -2,6 +2,8 @@
  * 成績の登録・一覧・修正・削除（CLAUDE.md 第4.4章・第4.4b章・第4.5b章）
  *
  * 打撃（B-7）と投手（B-8）で同じルールを使うため、共通の作りにしている。
+ * 投手は、画面では「回（innings）」と「アウト数（partial_outs：0〜2）」で入力し、
+ * 保存・比較・変更の記録は、アウト数の合計 outs で行う（4.4b章）。
  * - 入力・修正・削除ができるのは、本人が自分の記録に対してだけ（管理者も他人の記録には触れない）
  * - 試合日（0日目）から30日目まで（Config.js の RECORD_EDIT_DAYS）。過ぎたら EDIT_PERIOD_OVER
  * - 入力できるのは、自分が所属しているチームの成績だけ
@@ -51,6 +53,42 @@ function handleUpdateBattingRecord_(data, user, options) {
 /** 操作：deleteBattingRecord（自分の打撃成績を消す）。data: { record_id } */
 function handleDeleteBattingRecord_(data, user, options) {
   return deleteGameRecord_('batting', data, user, options);
+}
+
+/* ---------- 投手の操作（Main.js の getActions_ に登録） ---------- */
+
+/**
+ * 操作：addPitchingRecord（投手成績を1試合分登録する）
+ * data: { team_id, game_date, innings: 回, partial_outs: アウト数（0〜2）, earned_runs: 自責点 }
+ * 保存するときは outs ＝ 回×3＋アウト数 にする（4.4b章）
+ */
+function handleAddPitchingRecord_(data, user, options) {
+  return addGameRecord_('pitching', data, user, options);
+}
+
+/** 操作：listMyPitchingRecords（自分の投手成績の一覧）。data: { team_id: 省略可 } */
+function handleListMyPitchingRecords_(data, user, options) {
+  return listGameRecords_('pitching', data, user, options);
+}
+
+/** 操作：updatePitchingRecord（自分の投手成績を直す）。data: { record_id, 登録と同じ全項目 } */
+function handleUpdatePitchingRecord_(data, user, options) {
+  return updateGameRecord_('pitching', data, user, options);
+}
+
+/** 操作：deletePitchingRecord（自分の投手成績を消す）。data: { record_id } */
+function handleDeletePitchingRecord_(data, user, options) {
+  return deleteGameRecord_('pitching', data, user, options);
+}
+
+/**
+ * 投球回の表示（6章）：アウト数の合計を「○回」「○回1/3」「○回2/3」の形にする。
+ * 例：16 → 「5回1/3」、18 → 「6回」、2 → 「0回2/3」
+ */
+function formatInnings_(outs) {
+  const whole = Math.floor(outs / 3);
+  const rest = outs % 3;
+  return whole + '回' + (rest ? rest + '/3' : '');
 }
 
 /* ---------- 共通の処理 ---------- */
@@ -213,6 +251,12 @@ function editPeriodOverError_() {
 function toRecordSummary_(t, record, today) {
   const summary = { record_id: record.record_id };
   t.fields.forEach(function (field) { summary[field] = comparableValue_(field, record[field]); });
+  if (t.type === 'pitching') {
+    // 修正の画面に入れやすいように、入力と同じ「回」と「アウト数」に分けたものと、表示用の投球回も付ける
+    summary.innings = Math.floor(summary.outs / 3);
+    summary.partial_outs = summary.outs % 3;
+    summary.innings_text = formatInnings_(summary.outs);
+  }
   summary.editable = isWithinEditPeriod_(summary.game_date, today);
   summary.editable_until = addDays_(summary.game_date, CONFIG.RECORD_EDIT_DAYS);
   return summary;

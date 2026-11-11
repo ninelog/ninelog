@@ -39,6 +39,10 @@ function getActions_() {
     listMyBattingRecords: { handler: handleListMyBattingRecords_, write: false },
     updateBattingRecord: { handler: handleUpdateBattingRecord_, write: true },
     deleteBattingRecord: { handler: handleDeleteBattingRecord_, write: true },
+    addPitchingRecord: { handler: handleAddPitchingRecord_, write: true },
+    listMyPitchingRecords: { handler: handleListMyPitchingRecords_, write: false },
+    updatePitchingRecord: { handler: handleUpdatePitchingRecord_, write: true },
+    deletePitchingRecord: { handler: handleDeletePitchingRecord_, write: true },
   };
 }
 
