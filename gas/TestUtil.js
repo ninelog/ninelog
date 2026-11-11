@@ -55,14 +55,14 @@ function callAsTest_(handler, data, user, options, write) {
  * 自動テストでチームを作る（自動テスト専用の番号だけ作れる）。
  * 順番待ちの中で handleCreateTeam_ を呼ぶ。仮の人の登録は先に済ませておく（入れ子にしないため）。
  */
-function createTestTeam_(user, teamNumber, teamName, passphrase) {
+function createTestTeam_(user, teamNumber, teamName, passphrase, orgType) {
   if (!isTestUserId_(user.userId) || !isTestTeamNumber_(teamNumber)) {
     throw new Error('自動テストでは、仮の人（Utest…）と自動テスト専用の番号だけを使います');
   }
   ensureUser_(user);
   return withLock_(function () {
     return handleCreateTeam_(
-      { team_number: teamNumber, team_name: teamName, passphrase: passphrase },
+      { org_type: orgType, team_number: teamNumber, team_name: teamName, passphrase: passphrase },
       { userId: user.userId, isAdmin: false },
       { forAutomatedTest: true }
     );

@@ -1,13 +1,32 @@
 /**
- * チーム（CLAUDE.md 第4.2章・第4.3章・第4.8章）
+ * 組織（チームと大会）（CLAUDE.md 第4.2章・第4.3章・第4.8章・11.7章）
  *
- * B-6：チームの作成、自分のチーム一覧
- * B-6追加：チームへの参加、合言葉の変更（このあと作る）
+ * teams シートは「組織」の表で、org_type 列でチーム（team）と大会（tournament）を区別する。
+ * 番号・合言葉・参加のしかたは、チームも大会も同じ。番号は同じ表の中で重ならない。
+ * 成績を付けられるのはチームだけ（大会は、試合に結びつけて使う）。
+ *
+ * B-6：作成、自分の一覧／B-6追加（Join.js）：参加、合言葉の変更／B-10a：組織の種類
  */
 
+/** 組織の種類 */
+const ORG_TYPE = {
+  TEAM: 'team',
+  TOURNAMENT: 'tournament',
+};
+
+/** シートの org_type を読む（空の古い行はチームとして扱う） */
+function orgTypeOf_(team) {
+  return team.org_type === ORG_TYPE.TOURNAMENT ? ORG_TYPE.TOURNAMENT : ORG_TYPE.TEAM;
+}
+
+/** 画面の文言に使う名前（「チーム」または「大会」） */
+function orgLabel_(orgType) {
+  return orgType === ORG_TYPE.TOURNAMENT ? '大会' : 'チーム';
+}
+
 /**
- * 操作：createTeam（チームを作る）
- * data: { team_number: '2026', team_name: '〇〇ナイン', passphrase: '合言葉' }
+ * 操作：createTeam（チームまたは大会を作る）
+ * data: { org_type: 'team'（省略可）または 'tournament', team_number: '2026', team_name: '〇〇ナイン', passphrase: '合言葉' }
  * 作った人が代表者（owner）になり、memberships にも1行足す。
  * 書き込む操作なので、順番待ちの中で呼ばれる（Main.js の write: true）。
  *
@@ -18,8 +37,16 @@
 function handleCreateTeam_(data, user, options) {
   const forAutomatedTest = Boolean(options && options.forAutomatedTest);
   const errors = [];
+  let orgType = ORG_TYPE.TEAM;
+  if (data.org_type !== undefined && data.org_type !== null && data.org_type !== '') {
+    if (data.org_type === ORG_TYPE.TEAM || data.org_type === ORG_TYPE.TOURNAMENT) {
+      orgType = data.org_type;
+    } else {
+      errors.push({ field: 'org_type', message: '種類は「チーム」か「大会」を選んでください' });
+    }
+  }
   const teamNumber = checkTeamNumberFormat_(data.team_number, errors);
-  const teamName = checkTeamName_(data.team_name, errors);
+  const teamName = checkTeamName_(data.team_name, errors, orgType);
   let passphrase = null;
   try {
     passphrase = validatePassphrase_(data.passphrase);
@@ -50,6 +77,7 @@ function handleCreateTeam_(data, user, options) {
     created_by: user.userId,
     created_at: now,
     updated_at: now,
+    org_type: orgType,
   };
   appendRecord_(CONFIG.SHEET.TEAMS, team);
   appendRecord_(CONFIG.SHEET.MEMBERSHIPS, {
@@ -64,8 +92,9 @@ function handleCreateTeam_(data, user, options) {
 }
 
 /**
- * 操作：listMyTeams（自分が所属しているチームの一覧）
- * 参加した順に並べる。合言葉のハッシュなどは返さない。
+ * 操作：listMyTeams（自分が所属しているチームと大会の一覧）
+ * 参加した順に並べる。それぞれに orgType（'team' か 'tournament'）が付く。
+ * 合言葉のハッシュなどは返さない。
  */
 function handleListMyTeams_(data, user) {
   const memberships = readRecords_(CONFIG.SHEET.MEMBERSHIPS)
@@ -95,7 +124,7 @@ function checkTeamNumberFormat_(value, errors) {
     ? String(value).normalize('NFKC').trim()
     : '';
   if (!/^[1-9][0-9]{0,8}$/.test(text)) {
-    errors.push({ field: 'team_number', message: 'チーム番号は1〜999999999の数字で入力してください（先頭に0は付けません）' });
+    errors.push({ field: 'team_number', message: '番号は1〜999999999の数字で入力してください（先頭に0は付けません）' });
     return null;
   }
   return text;
@@ -128,12 +157,12 @@ function isTestTeamNumber_(teamNumber) {
   return n >= CONFIG.TEST_TEAM_NUMBER_MIN && n <= CONFIG.TEST_TEAM_NUMBER_MAX;
 }
 
-/** チーム名：1〜30文字 */
-function checkTeamName_(value, errors) {
+/** チーム名・大会名：1〜30文字 */
+function checkTeamName_(value, errors, orgType) {
   const name = typeof value === 'string' ? value.trim() : '';
   const length = Array.from(name).length;
   if (length < 1 || length > CONFIG.TEAM_NAME_MAX || /[\u0000-\u001f\u007f]/.test(name)) {
-    errors.push({ field: 'team_name', message: 'チーム名は1〜' + CONFIG.TEAM_NAME_MAX + '文字で入力してください' });
+    errors.push({ field: 'team_name', message: orgLabel_(orgType) + '名は1〜' + CONFIG.TEAM_NAME_MAX + '文字で入力してください' });
     return null;
   }
   return name;
@@ -143,12 +172,20 @@ function findTeamByNumber_(teamNumber) {
   return findRecord_(CONFIG.SHEET.TEAMS, function (t) { return String(t.team_number) === String(teamNumber); });
 }
 
-/** 画面に返すチームの情報（合言葉のハッシュや塩は含めない） */
+/** 画面に返すチーム・大会の情報（合言葉のハッシュや塩は含めない） */
 function toTeamSummary_(team, role) {
   return {
     teamId: team.team_id,
     teamNumber: String(team.team_number),
     teamName: String(team.team_name),
+    orgType: orgTypeOf_(team),
     role: role,
   };
+}
+
+/** そのIDの組織がチームで、本人が所属しているか（成績を付けられるのはチームだけ） */
+function isMemberOfTeamType_(userId, teamId) {
+  if (!findMembership_(userId, teamId)) return false;
+  const team = findRecord_(CONFIG.SHEET.TEAMS, function (t) { return t.team_id === teamId; });
+  return Boolean(team) && orgTypeOf_(team) === ORG_TYPE.TEAM;
 }

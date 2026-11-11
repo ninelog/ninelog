@@ -1,7 +1,7 @@
 /**
- * チームへの参加と、合言葉の変更（CLAUDE.md 第4.8章・第4.4c章）
+ * チーム・大会への参加と、合言葉の変更（CLAUDE.md 第4.8章・第4.4c章・11.7章）
  *
- * 参加：チーム番号と合言葉の両方が正しければ、memberships に1行足す。
+ * 参加：番号と合言葉の両方が正しければ、memberships に1行足す（チームも大会も同じ）。
  * 間違えた回数は人ごとに join_attempts シートに数え、10回で1時間止める。
  */
 
@@ -47,7 +47,7 @@ function handleJoinTeam_(data, user, options) {
     }
     const remaining = CONFIG.JOIN_MAX_FAILS - failCount;
     throw new AppError(APP_ERROR.JOIN_FAILED,
-      'チーム番号か合言葉が違います。あと' + remaining + '回間違えると、' + CONFIG.JOIN_LOCK_MINUTES + '分間入力できなくなります',
+      '番号か合言葉が違います。あと' + remaining + '回間違えると、' + CONFIG.JOIN_LOCK_MINUTES + '分間入力できなくなります',
       null, { remainingAttempts: remaining });
   }
 

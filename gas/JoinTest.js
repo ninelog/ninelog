@@ -48,7 +48,7 @@ function runJoinTests_(results) {
   results.push({ title: '合言葉が違うと断られる', expected: 'JOIN_FAILED', actual: wrong.code });
   results.push({ title: '残りの回数が返る（あと9回）', expected: 9, actual: wrong.info && wrong.info.remainingAttempts });
   results.push({ title: '間違いが1回と記録される', expected: 1, actual: testFailCount_(typo.userId) });
-  results.push({ title: '断られた返事に、どちらが違うかは書かない', expected: true, actual: wrong.message.indexOf('チーム番号か合言葉が違います') === 0 });
+  results.push({ title: '断られた返事に、どちらが違うかは書かない', expected: true, actual: wrong.message.indexOf('番号か合言葉が違います') === 0 });
 
   const noTeam = joinTestTeam_(typo, '999999998', 'ないんろぐ99');
   results.push({ title: '存在しない番号も1回と数える', expected: 'JOIN_FAILED/2', actual: noTeam.code + '/' + testFailCount_(typo.userId) });

@@ -100,7 +100,8 @@ function addGameRecord_(type, data, user, options) {
   if (!isWithinEditPeriod_(values.game_date, today)) {
     throw editPeriodOverError_();
   }
-  if (!findMembership_(user.userId, values.team_id)) {
+  // 成績を付けられるのは、所属しているチームだけ（大会には直接付けない。11.7章）
+  if (!isMemberOfTeamType_(user.userId, values.team_id)) {
     throw new AppError(APP_ERROR.FORBIDDEN, '所属していないチームの成績は入力できません');
   }
 
@@ -141,7 +142,7 @@ function updateGameRecord_(type, data, user, options) {
   if (!isWithinEditPeriod_(values.game_date, today)) {
     throw editPeriodOverError_();
   }
-  if (values.team_id !== String(current.team_id) && !findMembership_(user.userId, values.team_id)) {
+  if (values.team_id !== String(current.team_id) && !isMemberOfTeamType_(user.userId, values.team_id)) {
     throw new AppError(APP_ERROR.FORBIDDEN, '所属していないチームの成績は入力できません');
   }
 

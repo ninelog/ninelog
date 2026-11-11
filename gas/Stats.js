@@ -113,7 +113,8 @@ function seasonOf_(gameDate) {
  * 返事：選んだ年度とチーム、選択欄に出す年度とチームの一覧、打撃と投手の成績
  */
 function handleGetMyStats_(data, user, options) {
-  const myTeams = handleListMyTeams_({}, user).teams;
+  // 範囲の選択欄に出すのは、いまはチームだけ（大会は B-12 で足す。11.7章のG）
+  const myTeams = handleListMyTeams_({}, user).teams.filter(function (t) { return t.orgType === ORG_TYPE.TEAM; });
 
   // 範囲：全チーム合計（null）か、所属しているチームの1つ
   let teamId = null;

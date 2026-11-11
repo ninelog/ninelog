@@ -8,7 +8,9 @@
 /** シートごとに、必ずある見出しの一覧（CLAUDE.md 第4章の表と同じ） */
 const SHEET_COLUMNS = {
   users: ['user_id', 'display_name', 'name_source', 'created_at', 'updated_at'],
-  teams: ['team_id', 'team_number', 'team_name', 'passphrase_hash', 'passphrase_salt', 'created_by', 'created_at', 'updated_at'],
+  teams: ['team_id', 'team_number', 'team_name', 'passphrase_hash', 'passphrase_salt', 'created_by', 'created_at', 'updated_at', 'org_type'],
+  games: ['game_id', 'team_id', 'tournament_id', 'game_date', 'game_number', 'opponent', 'category', 'result',
+    'created_by', 'created_at', 'updated_at', 'deleted_at'],
   memberships: ['membership_id', 'user_id', 'team_id', 'role', 'joined_at'],
   join_attempts: ['user_id', 'fail_count', 'locked_until', 'updated_at'],
   batting_records: ['record_id', 'user_id', 'team_id', 'game_date', 'plate_appearances', 'at_bats', 'hits',
