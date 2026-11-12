@@ -17,6 +17,11 @@ function isTestUserId_(value) {
  * 本物のチーム（1〜1998 の予約番号を含む）の行は、消さない。
  */
 function cleanupTestData_() {
+  // 順番待ちの中で行う（その間に本物の利用者が書き込んでも、最新の内容を読んで、行の番号を取り違えないように）
+  withLock_(cleanupTestDataInLock_);
+}
+
+function cleanupTestDataInLock_() {
   const testTeamIds = readRecords_(CONFIG.SHEET.TEAMS)
     .filter(function (t) { return isTestTeamNumber_(t.team_number); })
     .map(function (t) { return t.team_id; });
@@ -70,14 +75,10 @@ function createTestTeam_(user, teamNumber, teamName, passphrase, orgType) {
   });
 }
 
-/** 条件に合う行を消す（下の行から消すと、上の行の番号がずれない） */
+/** 条件に合う行を消す（続いている行はまとめて1回で消す。Sheets.js の deleteRows_） */
 function deleteRowsWhere_(name, predicate) {
-  const sheet = getSheet_(name);
-  readRecords_(name)
-    .filter(predicate)
-    .map(function (r) { return r._row; })
-    .sort(function (a, b) { return b - a; })
-    .forEach(function (row) { sheet.deleteRow(row); });
+  const rows = readRecords_(name).filter(predicate).map(function (r) { return r._row; });
+  deleteRows_(name, rows);
 }
 
 /**
@@ -142,6 +143,17 @@ function logResults_(results) {
   if (testAllCollector_) {
     results.forEach(function (r) { testAllCollector_.push(r); });
   }
+}
+
+/**
+ * 「成功するはず」の確認用。成功（r[key] がある）なら 'ok'、断られたら「理由の名前：説明（項目）」を返す。
+ * NG になったとき、実行ログで理由がわかるようにするため（true/false だけだと理由がわからない）。
+ */
+function okOrReason_(r, key) {
+  if (r && r[key]) return 'ok';
+  if (!r) return '（返事が空）';
+  const details = r.details ? '（' + r.details.map(function (d) { return d.field + '：' + d.message; }).join(' / ') + '）' : '';
+  return (r.code || '理由不明') + '：' + (r.message || JSON.stringify(r)) + details;
 }
 
 /** fn を実行して、断られたら「項目名：説明」、通ったら 'pass' を返す */

@@ -49,11 +49,13 @@ function newPassphraseSalt_() {
  */
 function hashPassphrase_(normalized, salt) {
   const pepper = getOrCreatePassphrasePepper_();
-  let value = salt + ':' + normalized;
-  for (let i = 0; i < CONFIG.PASSPHRASE_HASH_ROUNDS; i++) {
-    value = bytesToHex_(Utilities.computeHmacSha256Signature(value, pepper, Utilities.Charset.UTF_8));
-  }
-  return value;
+  return measure_('hash', function () {
+    let value = salt + ':' + normalized;
+    for (let i = 0; i < CONFIG.PASSPHRASE_HASH_ROUNDS; i++) {
+      value = bytesToHex_(Utilities.computeHmacSha256Signature(value, pepper, Utilities.Charset.UTF_8));
+    }
+    return value;
+  });
 }
 
 /** 入力された合言葉が、保存されているハッシュと一致するか */

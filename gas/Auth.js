@@ -48,10 +48,12 @@ function verifyIdToken_(idToken) {
   // LINEの窓口に「この札は、このチャネル用の本物か」を問い合わせる
   let response;
   try {
-    response = UrlFetchApp.fetch(CONFIG.LINE_VERIFY_URL, {
-      method: 'post',
-      payload: { id_token: idToken, client_id: channelId },
-      muteHttpExceptions: true, // エラーの返事も受け取って、自分で理由を判断する
+    response = measure_('fetch', function () {
+      return UrlFetchApp.fetch(CONFIG.LINE_VERIFY_URL, {
+        method: 'post',
+        payload: { id_token: idToken, client_id: channelId },
+        muteHttpExceptions: true, // エラーの返事も受け取って、自分で理由を判断する
+      });
     });
   } catch (err) {
     throw new AuthError(AUTH_ERROR.LINE_UNAVAILABLE, 'LINEの窓口に接続できませんでした');

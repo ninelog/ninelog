@@ -57,7 +57,7 @@ function runGameTests_(results) {
   results.push({ title: '同じ日・同じ番号の試合は作れない', expected: 'game_number', actual: firstField(create(owner, { team_id: team.team_id, game_date: TODAY, game_number: 1 })) });
   results.push({ title: '第10試合は作れない（1〜9）', expected: 'game_number', actual: firstField(create(owner, { team_id: team.team_id, game_date: '2026-11-09', game_number: 10 })) });
   results.push({ title: '第0試合は作れない', expected: 'game_number', actual: firstField(create(owner, { team_id: team.team_id, game_date: '2026-11-09', game_number: 0 })) });
-  results.push({ title: '30日目の試合は作れる', expected: true, actual: Boolean(create(owner, { team_id: team.team_id, game_date: '2026-10-11', opponent: '△△ズ' }).game) });
+  results.push({ title: '30日目の試合は作れる', expected: 'ok', actual: okOrReason_(create(owner, { team_id: team.team_id, game_date: '2026-10-11', opponent: '△△ズ' }), 'game') });
   results.push({ title: '31日目の試合は作れない', expected: 'EDIT_PERIOD_OVER', actual: create(owner, { team_id: team.team_id, game_date: '2026-10-10' }).code });
   results.push({ title: '未来の試合は作れない', expected: 'game_date', actual: firstField(create(owner, { team_id: team.team_id, game_date: '2026-11-11' })) });
   results.push({ title: '所属していないチームの試合は作れない', expected: 'FORBIDDEN', actual: create(outsider, { team_id: team.team_id, game_date: TODAY }).code });

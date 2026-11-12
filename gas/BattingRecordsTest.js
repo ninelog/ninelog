@@ -82,7 +82,7 @@ function runBattingRecordTests_(results) {
   results.push({ title: '同じ試合に2件目は入れられない（1試合1件まで）', expected: 'game_id', actual: firstField(add(me, line(gToday.game_id))) });
   results.push({ title: '同じ日の第2試合には入れられる（ダブルヘッダー）', expected: 2, actual: (add(me, line(gToday2.game_id)).record || {}).game_number });
   const a30 = add(me, line(gDay30.game_id));
-  results.push({ title: '30日目の試合は登録できる', expected: true, actual: Boolean(a30.record) });
+  results.push({ title: '30日目の試合は登録できる', expected: 'ok', actual: okOrReason_(a30, 'record') });
   const a31 = add(me, line(gDay31.game_id));
   results.push({ title: '31日目の試合は登録できない（期限切れの表示）', expected: 'EDIT_PERIOD_OVER/true', actual: a31.code + '/' + (String(a31.message).indexOf('入力・修正の期限を過ぎています') === 0) });
   results.push({ title: '所属していないチームの試合には登録できない', expected: 'FORBIDDEN', actual: add(me, line(gOther.game_id)).code });
@@ -148,7 +148,7 @@ function runBattingRecordTests_(results) {
   results.push({ title: '消した記録は、もう一度は消せない', expected: 'FORBIDDEN', actual: remove(me, a.record.record_id).code });
   const gameDel2 = callAsTest_(handleDeleteGame_, { game_id: g1101.game_id }, me, opt);
   results.push({ title: '成績を消したあとなら、試合を消せる', expected: true, actual: gameDel2.deleted });
-  results.push({ title: '消した記録の試合に、もう一度入力できる（1試合1件は、消していない記録で数える）', expected: true, actual: Boolean(add(me, line(gToday.game_id)).record) });
+  results.push({ title: '消した記録の試合に、もう一度入力できる（1試合1件は、消していない記録で数える）', expected: 'ok', actual: okOrReason_(add(me, line(gToday.game_id)), 'record') });
 
   results.push({ title: '他人の記録は、他人の一覧にだけ出る', expected: b.record.record_id, actual: list(other).map(function (r) { return r.record_id; }).join(',') });
 

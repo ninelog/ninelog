@@ -62,7 +62,7 @@ function runPitchingRecordTests_(results) {
 
   // ---------- 登録 ----------
   const a = add(me, line(gToday.game_id));
-  results.push({ title: '登録できる', expected: true, actual: Boolean(a.record && a.record.record_id) });
+  results.push({ title: '登録できる', expected: 'ok', actual: okOrReason_(a, 'record') });
   const aRow = rowOf(a.record.record_id);
   results.push({ title: '5回1/3 は outs=16 で保存される', expected: 16, actual: aRow.outs });
   results.push({ title: '自責点が保存される', expected: 2, actual: aRow.earned_runs });
@@ -72,7 +72,7 @@ function runPitchingRecordTests_(results) {
   results.push({ title: '打撃のシートには入らない', expected: null, actual: findRecord_(CONFIG.SHEET.BATTING, function (r) { return r.record_id === a.record.record_id; }) });
 
   results.push({ title: '同じ試合に2件目は入れられない（1試合1件まで）', expected: 'game_id', actual: firstField(add(me, line(gToday.game_id))) });
-  results.push({ title: '30日目の試合は登録できる', expected: true, actual: Boolean(add(me, line(gDay30.game_id)).record) });
+  results.push({ title: '30日目の試合は登録できる', expected: 'ok', actual: okOrReason_(add(me, line(gDay30.game_id)), 'record') });
   const a31 = add(me, line(gDay31.game_id));
   results.push({ title: '31日目の試合は登録できない（期限切れの表示）', expected: 'EDIT_PERIOD_OVER/true', actual: a31.code + '/' + (String(a31.message).indexOf('入力・修正の期限を過ぎています') === 0) });
   results.push({ title: '所属していないチームの試合には登録できない', expected: 'FORBIDDEN', actual: add(me, line(gOther.game_id)).code });
@@ -105,10 +105,10 @@ function runPitchingRecordTests_(results) {
 
   // 打撃と投手の取り違え
   results.push({ title: '打撃の操作では、投手の記録を消せない', expected: 'FORBIDDEN', actual: callAsTest_(handleDeleteBattingRecord_, { record_id: a.record.record_id }, me, opt).code });
-  results.push({ title: '同じ試合に、打撃の記録は別に1件入れられる（打撃と投手は別々に1件まで）', expected: true, actual: Boolean(callAsTest_(handleAddBattingRecord_, {
+  results.push({ title: '同じ試合に、打撃の記録は別に1件入れられる（打撃と投手は別々に1件まで）', expected: 'ok', actual: okOrReason_(callAsTest_(handleAddBattingRecord_, {
     game_id: gToday.game_id, plate_appearances: 2, at_bats: 2, hits: 0, doubles: 0, triples: 0, home_runs: 0, rbis: 0,
     walks: 0, hbp: 0, sacrifice_bunts: 0, sacrifice_flies: 0, strikeouts: 1, stolen_bases: 0,
-  }, me, opt).record) });
+  }, me, opt), 'record') });
 
   // ---------- 削除 ----------
   results.push({ title: '他人の記録は消せない', expected: 'FORBIDDEN', actual: remove(other, a.record.record_id).code });

@@ -121,13 +121,15 @@ function dispatch_(request, user) {
  */
 function withLock_(fn) {
   const lock = LockService.getScriptLock();
-  if (!lock.tryLock(CONFIG.LOCK_WAIT_MS)) {
+  if (!measure_('lockWait', function () { return lock.tryLock(CONFIG.LOCK_WAIT_MS); })) {
     throw new AppError(APP_ERROR.BUSY, '混み合っています。少し待ってから、もう一度お試しください');
   }
+  // 順番を待っている間に、ほかの人が書き込んだかもしれないので、覚えていたシートの内容を捨てる（B-11b）
+  forgetSheets_();
   try {
     return fn();
   } finally {
-    lock.releaseLock();
+    measure_('lockWait', function () { lock.releaseLock(); });
   }
 }
 

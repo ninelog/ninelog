@@ -74,7 +74,9 @@ const CONFIG = {
  * 設定場所：GASの編集画面 → 歯車「プロジェクトの設定」→「スクリプトプロパティ」
  */
 function getLineLoginChannelId_() {
-  return PropertiesService.getScriptProperties().getProperty('LINE_LOGIN_CHANNEL_ID');
+  return measure_('props', function () {
+    return PropertiesService.getScriptProperties().getProperty('LINE_LOGIN_CHANNEL_ID');
+  });
 }
 
 /**
@@ -82,7 +84,9 @@ function getLineLoginChannelId_() {
  * スクリプトプロパティ ADMIN_LINE_USER_IDS に、カンマ区切りで並べたLINEユーザーIDで判定する。
  */
 function isAdmin_(userId) {
-  const list = PropertiesService.getScriptProperties().getProperty('ADMIN_LINE_USER_IDS') || '';
+  const list = measure_('props', function () {
+    return PropertiesService.getScriptProperties().getProperty('ADMIN_LINE_USER_IDS');
+  }) || '';
   return list.split(',').map(function (s) { return s.trim(); }).filter(Boolean).indexOf(userId) !== -1;
 }
 
@@ -93,11 +97,13 @@ function isAdmin_(userId) {
  * 注意：書き込みの順番待ち（withLock_）の中から呼ぶこと。2人が同時に作ってしまうのを防ぐため。
  */
 function getOrCreatePassphrasePepper_() {
-  const props = PropertiesService.getScriptProperties();
-  let pepper = props.getProperty('PASSPHRASE_PEPPER');
-  if (!pepper) {
-    pepper = Utilities.getUuid() + Utilities.getUuid();
-    props.setProperty('PASSPHRASE_PEPPER', pepper);
-  }
-  return pepper;
+  return measure_('props', function () {
+    const props = PropertiesService.getScriptProperties();
+    let pepper = props.getProperty('PASSPHRASE_PEPPER');
+    if (!pepper) {
+      pepper = Utilities.getUuid() + Utilities.getUuid();
+      props.setProperty('PASSPHRASE_PEPPER', pepper);
+    }
+    return pepper;
+  });
 }
