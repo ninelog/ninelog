@@ -4,8 +4,9 @@
  * 画面から届いた1試合分の成績が正しいかを確かめ、保存する形にそろえて返す。
  * 正しくない項目があれば、項目ごとの説明をまとめて VALIDATION_ERROR で断る。
  *
- * ここで確かめないこと：
- * - 「そのチームに所属しているか」はシートを見る必要があるため、登録の処理（B-7・B-8）で確かめる。
+ * ここで確かめないこと（シートを見る必要があるため、登録の処理 Records.js で確かめる）：
+ * - その試合があるか、そのチームに所属しているか、試合日から30日以内か
+ * （2026-11-11 B-11：成績は試合に結びつける。チームと試合日の代わりに game_id を受け取る。11.2章）
  */
 
 /** 打撃の入力項目（保存する列の名前、画面に出す名前） */
@@ -28,14 +29,12 @@ const BATTING_COUNT_FIELDS = [
 /**
  * 打撃1試合分の入力を確かめる。
  * @param {Object} data 画面から届いた中身
- * @param {{today: string}=} options テスト用。今日の日付を決め打ちしたいとき
- * @return {Object} 保存する形（team_id、game_date、13項目の数字）
+ * @return {Object} 保存する形（game_id、13項目の数字）
  */
-function validateBattingInput_(data, options) {
+function validateBattingInput_(data) {
   const errors = [];
   const v = {
-    team_id: checkTeamId_(data.team_id, errors),
-    game_date: checkGameDate_(data.game_date, errors, options),
+    game_id: checkGameId_(data.game_id, errors),
   };
   BATTING_COUNT_FIELDS.forEach(function (f) {
     v[f[0]] = checkCount_(data[f[0]], f[0], f[1], CONFIG.MAX_COUNT_PER_GAME, errors);
@@ -76,20 +75,18 @@ function validateBattingInput_(data, options) {
  * 投手1試合分の入力を確かめる。
  * 画面では投球回を「回（innings）」と「アウト数（partial_outs：0〜2）」に分けて入力し、
  * 保存するときは アウト数の合計 outs ＝ 回×3＋アウト数 にする（第4.4b章）。
- * @return {Object} 保存する形（team_id、game_date、outs、earned_runs）
+ * @return {Object} 保存する形（game_id、outs、earned_runs）
  */
-function validatePitchingInput_(data, options) {
+function validatePitchingInput_(data) {
   const errors = [];
-  const teamId = checkTeamId_(data.team_id, errors);
-  const gameDate = checkGameDate_(data.game_date, errors, options);
+  const gameId = checkGameId_(data.game_id, errors);
   const innings = checkCount_(data.innings, 'innings', '投球回（回）', CONFIG.MAX_COUNT_PER_GAME, errors);
   const partialOuts = checkCount_(data.partial_outs, 'partial_outs', '投球回（アウト数）', 2, errors);
   const earnedRuns = checkCount_(data.earned_runs, 'earned_runs', '自責点', CONFIG.MAX_COUNT_PER_GAME, errors);
 
   throwIfErrors_(errors);
   return {
-    team_id: teamId,
-    game_date: gameDate,
+    game_id: gameId,
     outs: innings * 3 + partialOuts,
     earned_runs: earnedRuns,
   };
@@ -116,7 +113,16 @@ function checkCount_(value, field, label, max, errors) {
   return n;
 }
 
-/** チームが選ばれているかを確かめる（所属しているかは B-7・B-8 で確かめる） */
+/** 試合が選ばれているかを確かめる（その試合があるか・所属しているかは Records.js で確かめる） */
+function checkGameId_(value, errors) {
+  if (typeof value !== 'string' || value.trim() === '' || value.length > 64) {
+    addError_(errors, 'game_id', '試合を選んでください');
+    return null;
+  }
+  return value.trim();
+}
+
+/** チームが選ばれているかを確かめる（所属しているかは、それぞれの処理で確かめる） */
 function checkTeamId_(value, errors) {
   if (typeof value !== 'string' || value.trim() === '' || value.length > 64) {
     addError_(errors, 'team_id', 'チームを選んでください');

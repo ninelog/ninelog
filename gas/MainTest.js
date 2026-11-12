@@ -64,14 +64,8 @@ function runDoPostTests_() {
   const second = withLock_(function () { return 'ok2'; });
   results.push({ title: '順番待ちが解除される', expected: 'ok1,ok2', actual: first + ',' + second });
 
-  // --- 結果 ---
-  let passed = 0;
-  results.forEach(function (r) {
-    const ok = r.actual === r.expected;
-    if (ok) passed++;
-    Logger.log((ok ? 'OK' : 'NG') + '｜' + r.title + '｜期待：' + r.expected + '｜結果：' + r.actual);
-  });
-  Logger.log('合計：' + passed + ' / ' + results.length + ' 件 OK');
+  // --- 結果（出し方をほかのテストとそろえる。testAll でまとめられるように） ---
+  logResults_(results);
 }
 
 /** テスト用：画面から本文 text が届いたつもりの e を作る */

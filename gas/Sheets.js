@@ -13,10 +13,11 @@ const SHEET_COLUMNS = {
     'created_by', 'created_at', 'updated_at', 'deleted_at'],
   memberships: ['membership_id', 'user_id', 'team_id', 'role', 'joined_at'],
   join_attempts: ['user_id', 'fail_count', 'locked_until', 'updated_at'],
-  batting_records: ['record_id', 'user_id', 'team_id', 'game_date', 'plate_appearances', 'at_bats', 'hits',
+  // 2026-11-11 B-11：team_id・game_date の列をやめて game_id にした（11.2章）
+  batting_records: ['record_id', 'user_id', 'game_id', 'plate_appearances', 'at_bats', 'hits',
     'doubles', 'triples', 'home_runs', 'rbis', 'walks', 'hbp', 'sacrifice_bunts', 'sacrifice_flies',
     'strikeouts', 'stolen_bases', 'created_at', 'updated_at', 'deleted_at'],
-  pitching_records: ['record_id', 'user_id', 'team_id', 'game_date', 'outs', 'earned_runs',
+  pitching_records: ['record_id', 'user_id', 'game_id', 'outs', 'earned_runs',
     'created_at', 'updated_at', 'deleted_at'],
   record_changes: ['change_id', 'changed_at', 'user_id', 'record_type', 'record_id', 'action',
     'field', 'old_value', 'new_value'],

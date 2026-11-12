@@ -126,17 +126,21 @@ function handleGetMyStats_(data, user, options) {
     teamId = data.team_id;
   }
 
-  // 自分の、削除していない記録（全チーム・全期間）
+  // 自分の、削除していない記録（全チーム・全期間）。試合日とチームは、試合（games）から読む（11.2章）
+  const gamesById = gamesById_();
   const mine = function (sheet) {
-    return readRecords_(sheet).filter(function (r) { return r.user_id === user.userId && !r.deleted_at; });
+    return readRecords_(sheet).filter(function (r) {
+      return r.user_id === user.userId && !r.deleted_at && gamesById[r.game_id];
+    });
   };
   const allBatting = mine(CONFIG.SHEET.BATTING);
   const allPitching = mine(CONFIG.SHEET.PITCHING);
+  const gameOf = function (r) { return gamesById[r.game_id]; };
 
   // 選択欄に出す年度：記録がある年度（全チーム分。新しい順）
   const seasons = [];
   allBatting.concat(allPitching).forEach(function (r) {
-    const s = seasonOf_(r.game_date);
+    const s = seasonOf_(gameOf(r).game_date);
     if (seasons.indexOf(s) === -1) seasons.push(s);
   });
   seasons.sort().reverse();
@@ -154,7 +158,8 @@ function handleGetMyStats_(data, user, options) {
 
   const pick = function (records) {
     return records.filter(function (r) {
-      return (season === 'all' || seasonOf_(r.game_date) === season) && (!teamId || r.team_id === teamId);
+      const g = gameOf(r);
+      return (season === 'all' || seasonOf_(g.game_date) === season) && (!teamId || g.team_id === teamId);
     });
   };
 

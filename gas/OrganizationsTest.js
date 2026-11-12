@@ -65,13 +65,9 @@ function runOrganizationTests_(results) {
     dispatch_({ action: 'changePassphrase', data: { team_id: tournament.teamId, passphrase: 'のっとりたいかい' } }, player);
   }) });
 
-  // ---------- 成績を付けられるのはチームだけ ----------
-  const toTournament = callAsTest_(handleAddBattingRecord_, {
-    team_id: tournament.teamId, game_date: '2026-11-10',
-    plate_appearances: 1, at_bats: 1, hits: 0, doubles: 0, triples: 0, home_runs: 0, rbis: 0,
-    walks: 0, hbp: 0, sacrifice_bunts: 0, sacrifice_flies: 0, strikeouts: 0, stolen_bases: 0,
-  }, player, { today: '2026-11-10' });
-  results.push({ title: '大会には成績を直接入力できない', expected: 'FORBIDDEN', actual: toTournament.code });
+  // ---------- 成績を付けられるのはチームだけ（2026-11-11 B-11：成績は試合に付けるので、大会には試合を作れないことで確かめる） ----------
+  const toTournament = callAsTest_(handleCreateGame_, { team_id: tournament.teamId, game_date: '2026-11-10' }, player, { today: '2026-11-10' });
+  results.push({ title: '大会には試合（成績の入れ先）を直接作れない', expected: 'FORBIDDEN', actual: toTournament.code });
 
   const stats = callAsTest_(handleGetMyStats_, {}, player, { today: '2026-11-10' }, false);
   results.push({ title: '自分の成績の範囲の選択欄は、いまはチームだけ（大会は B-12 で足す）', expected: '999999951', actual: stats.teams.map(function (t) { return t.teamNumber; }).join(',') });

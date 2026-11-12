@@ -16,7 +16,7 @@ function testVerifyIdToken() {
     { title: '札の形だけまねた偽物', token: 'aaaa.bbbb.cccc', expected: AUTH_ERROR.TOKEN_INVALID },
   ];
 
-  let passed = 0;
+  const results = [];
   cases.forEach(function (c) {
     let actual;
     try {
@@ -25,10 +25,7 @@ function testVerifyIdToken() {
     } catch (err) {
       actual = err.code || ('想定外のエラー：' + err.message);
     }
-    const ok = actual === c.expected;
-    if (ok) passed++;
-    Logger.log((ok ? 'OK' : 'NG') + '｜' + c.title + '｜期待：' + c.expected + '｜結果：' + actual);
+    results.push({ title: c.title, expected: c.expected, actual: actual });
   });
-
-  Logger.log('合計：' + passed + ' / ' + cases.length + ' 件 OK');
+  logResults_(results); // 結果の出し方をほかのテストとそろえる（testAll でまとめられるように）
 }

@@ -103,13 +103,34 @@ function joinTestTeam_(user, teamNumber, passphrase, now) {
   }
 }
 
+/**
+ * 自動テストで試合を作る（自動テスト専用の番号のチームだけ）。
+ * today：その日を「今日」として作る（30日より前の試合を用意するため）
+ * @return {Object} 作った試合（toGameSummary_ の形）
+ */
+function createTestGame_(user, teamId, gameDate, today, extra) {
+  const team = findRecord_(CONFIG.SHEET.TEAMS, function (t) { return t.team_id === teamId; });
+  if (!isTestUserId_(user.userId) || !team || !isTestTeamNumber_(team.team_number)) {
+    throw new Error('自動テストでは、仮の人（Utest…）と自動テスト専用の番号のチームだけを使います');
+  }
+  const result = callAsTest_(handleCreateGame_, Object.assign({ team_id: teamId, game_date: gameDate }, extra || {}), user, { today: today || gameDate });
+  if (!result.game) throw new Error('テスト用の試合を作れませんでした：' + JSON.stringify(result));
+  return result.game;
+}
+
 /** 仮の人の、間違えた回数の記録（無ければ 0） */
 function testFailCount_(userId) {
   const r = findRecord_(CONFIG.SHEET.JOIN_ATTEMPTS, function (x) { return x.user_id === userId; });
   return r ? Number(r.fail_count) || 0 : 0;
 }
 
-/** 結果の一覧を実行ログに出す（OK／NG と合計） */
+/**
+ * testAll が実行中のときだけ使う、結果の受け取り口（TestAll.js）。
+ * 1つのテストを実行するたびに空の配列に戻し、logResults_ がここに結果を入れる。
+ */
+let testAllCollector_ = null;
+
+/** 結果の一覧を実行ログに出す（OK／NG と合計）。testAll の実行中なら、結果を受け取り口にも渡す */
 function logResults_(results) {
   let passed = 0;
   results.forEach(function (r) {
@@ -118,6 +139,9 @@ function logResults_(results) {
     Logger.log((ok ? 'OK' : 'NG') + '｜' + r.title + '｜期待：' + r.expected + '｜結果：' + r.actual);
   });
   Logger.log('合計：' + passed + ' / ' + results.length + ' 件 OK');
+  if (testAllCollector_) {
+    results.forEach(function (r) { testAllCollector_.push(r); });
+  }
 }
 
 /** fn を実行して、断られたら「項目名：説明」、通ったら 'pass' を返す */

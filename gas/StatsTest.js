@@ -53,14 +53,21 @@ function testMyStatsScenario_(results) {
   const teamB = findTeamByNumber_('999999942');
   joinTestTeam_(other, '999999941', 'ないんろぐ99');
 
+  // 2026-11-11 B-11：成績は試合に付けるので、チームと日付ごとに試合を1つ用意して使い回す（作るのは me）
+  const games = {};
+  const gameFor = function (teamId, date, today) {
+    const key = teamId + '|' + date;
+    if (!games[key]) games[key] = createTestGame_(me, teamId, date, today);
+    return games[key].game_id;
+  };
   const bat = function (user, teamId, date, today, nums) {
     const keys = battingCountFields_();
-    const data = { team_id: teamId, game_date: date };
+    const data = { game_id: gameFor(teamId, date, today) };
     keys.forEach(function (k, i) { data[k] = nums[i]; });
     return callAsTest_(handleAddBattingRecord_, data, user, { today: today });
   };
   const pit = function (user, teamId, date, today, innings, partialOuts, er) {
-    return callAsTest_(handleAddPitchingRecord_, { team_id: teamId, game_date: date, innings: innings, partial_outs: partialOuts, earned_runs: er }, user, { today: today });
+    return callAsTest_(handleAddPitchingRecord_, { game_id: gameFor(teamId, date, today), innings: innings, partial_outs: partialOuts, earned_runs: er }, user, { today: today });
   };
 
   //                                       打席 打数 安打 二塁 三塁 本塁 打点 四球 死球 犠打 犠飛 三振 盗塁
