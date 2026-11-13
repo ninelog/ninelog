@@ -16,6 +16,8 @@
   --error-soft: #fce8e6;  /* エラーの地 */
   --ok: #1f7a4d;          /* 成功の文字 */
   --ok-soft: #e3f2ea;     /* 成功の地 */
+  --warn: #b26a00;        /* 注意の線 */
+  --warn-soft: #fff4dc;   /* 注意の地 */
   --header-h: 52px;       /* ヘッダーの高さ */
 }
 @media (prefers-color-scheme: dark) {
@@ -32,6 +34,8 @@
     --error-soft: #3a1f1d;
     --ok: #5cc08a;
     --ok-soft: #1f3328;
+    --warn: #f0b75a;
+    --warn-soft: #3a2e17;
   }
 }
 
@@ -144,6 +148,13 @@ body {
 }
 .nl-alert--error { background: var(--error-soft); color: var(--error); }
 .nl-alert--ok { background: var(--ok-soft); color: var(--ok); }
+/* 注意（作る前に気をつけてほしいこと）：黄色の地に、左に太い線 */
+.nl-alert--warn {
+  background: var(--warn-soft);
+  color: var(--text);
+  border-left: 4px solid var(--warn);
+  font-weight: 700;
+}
 .nl-alert ul { margin: 6px 0 0; padding-left: 1.2em; }
 /* 押したボタンがある四角の一番下に出すお知らせ（2026-11-14 の決まり） */
 [data-nl-local-alert] { margin: 12px 0 0; }

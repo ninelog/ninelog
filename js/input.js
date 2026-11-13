@@ -187,6 +187,11 @@
     $('game-number-text').textContent = '第' + num.value + '試合として作ります';
     $('game-number-auto').hidden = false;
     $('game-number-pick').hidden = true;
+    // その日にまだ試合が無いときは「このままで大丈夫」の説明を、すでにあるときは目立つ注意を出す
+    // （同じ試合を2人が別々に作って、試合数が増えてしまうのを防ぐため）
+    const hasGames = state.games.length > 0;
+    $('first-game-note').hidden = hasGames;
+    $('same-day-warn').hidden = !hasGames;
 
     const tour = $('tournament_id');
     tour.innerHTML = '';
@@ -276,6 +281,7 @@
   $('btn-new').addEventListener('click', showNewGame);
   $('btn-change-number').addEventListener('click', function () {
     $('game-number-auto').hidden = true;
+    $('first-game-note').hidden = true;
     $('game-number-pick').hidden = false;
     $('game_number').focus();
   });

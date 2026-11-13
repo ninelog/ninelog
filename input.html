@@ -51,12 +51,17 @@
     <form class="nl-card" id="new-game" hidden novalidate>
       <h2>新しい試合を作る</h2>
       <p class="nl-note" id="new-game-date"></p>
+      <!-- その日にすでに試合があるときだけ出す注意（同じ試合を2人が別々に作るのを防ぐため。2026-11-14 利用者が決定） -->
+      <div class="nl-alert nl-alert--warn" id="same-day-warn" role="note" hidden>
+        この日はすでにチームの試合があります。同じ試合なら、上の一覧から選んでください。ダブルヘッダーの2試合目のときだけ、新しく作ってください。
+      </div>
       <div class="nl-field">
-        <!-- ふだんは自動で決まった番号だけを出す。「番号を変える」を押したときだけ選択欄を出す（2026-11-14 利用者が決定） -->
+        <!-- ふだんは自動で決まった番号だけを出す。「第何試合かを選ぶ」を押したときだけ選択欄を出す（2026-11-14 利用者が決定） -->
         <p style="margin:0" id="game-number-auto">
           <strong id="game-number-text"></strong>
-          <button type="button" class="nl-link" id="btn-change-number">番号を変える</button>
+          <button type="button" class="nl-link" id="btn-change-number">第何試合かを選ぶ</button>
         </p>
+        <p class="nl-note" id="first-game-note" hidden>1日1試合なら、このままで大丈夫です。ダブルヘッダーのときは、1試合目を作ったあとに、もう一度「＋ この日の試合を新しく作る」を押すと、自動で「第2試合」になります。</p>
         <div id="game-number-pick" hidden>
           <label for="game_number">第何試合</label>
           <select id="game_number" name="game_number"></select>
