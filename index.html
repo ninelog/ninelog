@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ナインログ</title>
+  <!--
+    ナインログのトップ画面（C-1）。
+    今は「準備中」を出すだけ。C-2で LIFF（LINEの中で開く画面）の準備処理 liff.init() を入れる。
+    注意：LIFFはまずこのページを開いてから目的のページへ移動するため、このページにも必ず liff.init() を入れる（CLAUDE.md 3.4章）。
+  -->
+  <style>
+    :root {
+      --bg: #f6f7f5;
+      --text: #1f2a24;
+      --sub: #5b6b62;
+      --accent: #1f7a4d;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #141816;
+        --text: #e8ece9;
+        --sub: #a3b0a8;
+        --accent: #5cc08a;
+      }
+    }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
+      text-align: center;
+      padding: 0 16px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      color: var(--accent);
+      letter-spacing: 0.05em;
+    }
+    p {
+      margin: 0;
+      color: var(--sub);
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>ナインログ</h1>
+    <p>準備中です</p>
+  </main>
+</body>
+</html>
