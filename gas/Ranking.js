@@ -111,42 +111,12 @@ function rankCategory_(c, players) {
  * 返事：チーム名、年度、選択欄に出す年度とチーム、チーム試合数、規定打席・規定投球回、8部門のランキング
  */
 function handleGetTeamRanking_(data, user, options) {
-  const myTeams = handleListMyTeams_({}, user).teams.filter(function (t) { return t.orgType === ORG_TYPE.TEAM; });
-  if (data.team_id === undefined || data.team_id === null || data.team_id === '') {
-    throw new AppError(APP_ERROR.BAD_REQUEST, 'team_id（チーム）を指定してください');
-  }
-  const team = myTeams.filter(function (t) { return t.teamId === data.team_id; })[0];
-  if (!team) {
-    throw new AppError(APP_ERROR.FORBIDDEN, '所属していないチームのランキングは見られません');
-  }
-
-  // そのチームの、消していない試合
-  const teamGames = readRecords_(CONFIG.SHEET.GAMES).filter(function (g) {
-    return g.team_id === team.teamId && !g.deleted_at;
-  });
-
-  // 選択欄に出す年度：そのチームの試合がある年度（新しい順）
-  const seasons = [];
-  teamGames.forEach(function (g) {
-    const s = seasonOf_(g.game_date);
-    if (seasons.indexOf(s) === -1) seasons.push(s);
-  });
-  seasons.sort().reverse();
-
-  let season = data.season;
-  if (season === undefined || season === null || season === '') {
-    const thisYear = todayText_(options).slice(0, 4);
-    season = seasons.indexOf(thisYear) !== -1 ? thisYear : 'all';
-  }
-  if (season !== 'all' && !/^\d{4}$/.test(String(season))) {
-    throw new AppError(APP_ERROR.BAD_REQUEST, '年度は「all」（通算）か「2026」のような4けたの年で指定してください');
-  }
-  season = String(season);
-
-  const gamesInSeason = {};
-  teamGames.forEach(function (g) {
-    if (season === 'all' || seasonOf_(g.game_date) === season) gamesInSeason[g.game_id] = g;
-  });
+  const scope = teamSeasonScope_(data, user, options, 'ランキング');
+  const team = scope.team;
+  const myTeams = scope.myTeams;
+  const season = scope.season;
+  const seasons = scope.seasons;
+  const gamesInSeason = scope.gamesInSeason;
   const gameCount = Object.keys(gamesInSeason).length;
   const qualifyPa = gameCount * CONFIG.QUALIFY_PA_PER_GAME;
   const qualifyOuts = gameCount * CONFIG.QUALIFY_IP_PER_GAME * 3;
@@ -187,6 +157,52 @@ function handleGetTeamRanking_(data, user, options) {
     qualifyInningsText: formatInnings_(qualifyOuts),
     categories: computeRankings_(players),
   };
+}
+
+/**
+ * チームと年度を決める（チームのランキング B-13 とチーム全体の成績 B-14 で共通）。
+ * - team_id は必須。所属しているチームだけ（大会のIDや所属していないチームは FORBIDDEN）。
+ * - 年度の選択欄：そのチームの試合がある年度（新しい順）。省略すると今年、今年の試合が無ければ通算。
+ * @param {string} what 断るときの文に入れる言葉（「ランキング」「成績」）
+ * @return {{ team, myTeams, season, seasons, gamesInSeason: { game_id: 試合 } }}
+ */
+function teamSeasonScope_(data, user, options, what) {
+  const myTeams = handleListMyTeams_({}, user).teams.filter(function (t) { return t.orgType === ORG_TYPE.TEAM; });
+  if (data.team_id === undefined || data.team_id === null || data.team_id === '') {
+    throw new AppError(APP_ERROR.BAD_REQUEST, 'team_id（チーム）を指定してください');
+  }
+  const team = myTeams.filter(function (t) { return t.teamId === data.team_id; })[0];
+  if (!team) {
+    throw new AppError(APP_ERROR.FORBIDDEN, '所属していないチームの' + what + 'は見られません');
+  }
+
+  // そのチームの、消していない試合
+  const teamGames = readRecords_(CONFIG.SHEET.GAMES).filter(function (g) {
+    return g.team_id === team.teamId && !g.deleted_at;
+  });
+
+  const seasons = [];
+  teamGames.forEach(function (g) {
+    const s = seasonOf_(g.game_date);
+    if (seasons.indexOf(s) === -1) seasons.push(s);
+  });
+  seasons.sort().reverse();
+
+  let season = data.season;
+  if (season === undefined || season === null || season === '') {
+    const thisYear = todayText_(options).slice(0, 4);
+    season = seasons.indexOf(thisYear) !== -1 ? thisYear : 'all';
+  }
+  if (season !== 'all' && !/^\d{4}$/.test(String(season))) {
+    throw new AppError(APP_ERROR.BAD_REQUEST, '年度は「all」（通算）か「2026」のような4けたの年で指定してください');
+  }
+  season = String(season);
+
+  const gamesInSeason = {};
+  teamGames.forEach(function (g) {
+    if (season === 'all' || seasonOf_(g.game_date) === season) gamesInSeason[g.game_id] = g;
+  });
+  return { team: team, myTeams: myTeams, season: season, seasons: seasons, gamesInSeason: gamesInSeason };
 }
 
 /**

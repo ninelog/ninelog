@@ -30,6 +30,7 @@ function testAllNames_() {
     'testMyStats',         // B-9（B-12） 自分の成績
     'testTeamRanking',     // B-13 チーム内ランキング
     'testTournamentRanking', // B-13b 大会のランキング
+    'testTeamStats',       // B-14 チーム全体の成績
   ];
 }
 
