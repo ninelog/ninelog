@@ -5,22 +5,80 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>チーム・設定｜ナインログ</title>
   <link rel="stylesheet" href="css/common.css">
-  <!-- チーム・設定（C-9で中身を作る。今は共通部品の見本だけ：C-3） -->
+  <!--
+    チーム・設定（CLAUDE.md 3.4章・4.8章。C-9）
+    - 自分の表示名の変更、所属しているチームの一覧、チームへの参加、チームの作成、（代表者だけ）合言葉の変更
+    - 大会の作成は C-9b、利用規約へのリンクは C-14 で足す
+  -->
 </head>
 <body>
   <div id="nl-header"></div>
   <main class="nl-main">
     <div id="nl-alert" hidden></div>
-    <div id="nl-placeholder" data-next="C-9"></div>
+    <p class="nl-loading" id="loading">読み込み中です…</p>
+
+    <div id="content" hidden>
+      <!-- 所属しているチーム -->
+      <section class="nl-card">
+        <h2>所属しているチーム</h2>
+        <div id="teams" class="nl-choices"></div>
+      </section>
+
+      <!-- チームに参加する -->
+      <form class="nl-card" id="join-form" novalidate>
+        <h2>チームに参加する</h2>
+        <p class="nl-note" style="margin:0 0 12px">チームの代表者から教えてもらった「番号」と「合言葉」を入れてください。</p>
+        <div class="nl-field">
+          <label for="join-number">番号</label>
+          <input type="text" id="join-number" name="team_number" inputmode="numeric" autocomplete="off" maxlength="9">
+        </div>
+        <div class="nl-field">
+          <label for="join-pass">合言葉</label>
+          <input type="text" id="join-pass" name="passphrase" autocomplete="off" maxlength="32">
+        </div>
+        <button type="submit" class="nl-btn nl-btn--block" id="btn-join">参加する</button>
+        <p class="nl-note">合言葉を10回まちがえると、1時間は入力できなくなります。</p>
+      </form>
+
+      <!-- チームを作る -->
+      <form class="nl-card" id="create-form" novalidate>
+        <h2>チームを作る</h2>
+        <p class="nl-note" style="margin:0 0 12px">作った人が、そのチームの代表者になります。作ったあとで、番号と合言葉をメンバーに伝えてください。</p>
+        <div class="nl-field">
+          <label for="create-number">番号（数字1〜9けた。ほかのチームと重ならない番号）</label>
+          <input type="text" id="create-number" name="team_number" inputmode="numeric" autocomplete="off" maxlength="9">
+          <p class="nl-note" id="number-hint">1999以上の番号を使ってください（1〜1998はテスト用です）。</p>
+        </div>
+        <div class="nl-field">
+          <label for="create-name">チーム名（30文字まで）</label>
+          <input type="text" id="create-name" name="team_name" autocomplete="off" maxlength="30">
+        </div>
+        <div class="nl-field">
+          <label for="create-pass">合言葉（6〜32文字。ひらがな・カタカナ・英字・数字）</label>
+          <input type="text" id="create-pass" name="passphrase" autocomplete="off" maxlength="32">
+          <p class="nl-note">全角・半角、大文字・小文字、ひらがな・カタカナの違いは同じものとして扱います。漢字・記号・空白は使えません。</p>
+        </div>
+        <button type="submit" class="nl-btn nl-btn--block" id="btn-create">チームを作る</button>
+      </form>
+
+      <!-- 表示名 -->
+      <form class="nl-card" id="name-form" novalidate>
+        <h2>あなたの表示名</h2>
+        <p class="nl-note" style="margin:0 0 12px">ランキングなどで、ほかのメンバーに見える名前です。最初はLINEの名前を使います。</p>
+        <div class="nl-field">
+          <label for="display-name">表示名（20文字まで）</label>
+          <input type="text" id="display-name" name="display_name" autocomplete="off" maxlength="20">
+        </div>
+        <button type="submit" class="nl-btn nl-btn--sub nl-btn--block" id="btn-name">表示名を変える</button>
+        <p class="nl-note" id="name-source"></p>
+      </form>
+    </div>
   </main>
 
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <script src="js/config.js"></script>
   <script src="js/liff-app.js"></script>
   <script src="js/ui.js"></script>
-  <script src="js/placeholder.js"></script>
-  <script>
-    NinelogUI.boot('team', 'チーム・設定', NinelogPlaceholder.render);
-  </script>
+  <script src="js/team.js"></script>
 </body>
 </html>
