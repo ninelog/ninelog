@@ -150,6 +150,55 @@ body {
 .nl-field-error { color: var(--error); font-size: 13px; margin-top: 4px; }
 .nl-input--error { border-color: var(--error) !important; }
 
+/* ---------- 横に並べる小さなボタン（「今日」「昨日」など。C-4a） ---------- */
+.nl-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.nl-chip {
+  min-height: 40px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--text);
+  font-size: 15px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.nl-chip:disabled { opacity: 0.45; cursor: default; }
+
+/* ---------- 選べるカード（試合の一覧など。C-4a） ---------- */
+.nl-choices { display: grid; gap: 8px; }
+.nl-choice {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 16px;
+  cursor: pointer;
+}
+.nl-choice[aria-pressed="true"] {
+  border: 2px solid var(--accent);
+  background: var(--accent-soft);
+  padding: 11px 13px;
+}
+.nl-choice__title { font-weight: 700; }
+.nl-choice__sub { color: var(--sub); font-size: 13px; margin-top: 2px; }
+.nl-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.nl-badge {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  color: var(--sub);
+}
+.nl-empty { color: var(--sub); font-size: 14px; padding: 8px 0; }
+.nl-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+
 /* ---------- 入力欄（C-4以降で使う） ---------- */
 .nl-field { margin-bottom: 14px; }
 .nl-field label { display: block; font-size: 14px; color: var(--sub); margin-bottom: 4px; }
