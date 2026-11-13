@@ -32,6 +32,15 @@ const NinelogApp = (function () {
    * 札（IDトークン）の期限切れ（TOKEN_EXPIRED）のときは、ログインし直して1回だけやり直す（3.3章）。
    */
   function call(action, data) {
+    // 混み合っている（BUSY）ときは、1.5秒待って1回だけやり直す（3.5章）
+    return send(action, data).catch(function (err) {
+      if (err.code !== 'BUSY') throw err;
+      return new Promise(function (resolve) { setTimeout(resolve, 1500); })
+        .then(function () { return send(action, data); });
+    });
+  }
+
+  function send(action, data) {
     const idToken = liff.getIDToken();
     return fetch(NINELOG_CONFIG.GAS_URL, {
       method: 'POST',

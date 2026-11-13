@@ -189,10 +189,18 @@ ninelog/
 │   └─ TournamentGamesTest.js  B-10bのテスト（試合に大会を付ける）
 │   ※ ファイル名は英語にする。最初からあった「コード.js」は空だったため削除した
 ├─ index.html         トップ画面（C-1）。LIFFの入口でもあるので liff.init() を必ず入れる。直接開くと「接続の確認」（C-2）
-└─ js/                画面で共通に使うプログラム（C-2）
-    ├─ config.js      公開してよい設定値（LIFF ID・GASのWebアプリのURL）だけ
-    └─ liff-app.js    LIFFの準備（NinelogApp.start）と、GASへの問い合わせ（NinelogApp.call。札の期限切れは1回だけやり直す）
-（C-3以降）input.html・mystats.html・ranking.html・team.html などの画面を足す。GitHub Pagesで公開する
+├─ input.html         成績を入力（C-3では形だけ。中身は C-4a・C-4・C-5）
+├─ mystats.html       自分の成績（C-3では形だけ。中身は C-6）
+├─ ranking.html       ランキング（C-3では形だけ。中身は C-7）
+├─ team.html          チーム・設定（C-3では形だけ。中身は C-9）
+├─ css/
+│   └─ common.css     共通の見た目（色・ヘッダー・ボタン・お知らせ・入力欄。暗い表示にも対応。C-3）
+└─ js/                画面で共通に使うプログラム
+    ├─ config.js      公開してよい設定値（LIFF ID・GASのWebアプリのURL）だけ（C-2）
+    ├─ liff-app.js    LIFFの準備（NinelogApp.start）と、GASへの問い合わせ（NinelogApp.call。札の期限切れは1回だけやり直す。混み合っているときは1.5秒後に1回だけやり直す）（C-2・C-3）
+    ├─ ui.js          共通部品（NinelogUI）：ヘッダー、画面の準備（boot）、エラー・成功のお知らせ、入力欄の近くのエラー、ボタンの送信中の表示（C-3）
+    └─ placeholder.js 中身を作る前の画面に出す「部品の見本」。各画面の中身を作ったら、その画面からは読み込みを消す（C-3）
+（GitHub Pagesで公開する。画面のファイルをコミット・プッシュすると数分で公開される）
 ```
 - `gas` フォルダの中身も GitHub に上げる（秘密の値は書かないため）。GitHub Pagesでも見える状態になるが、問題ない。
 - clasp はターミナルのタブで実行する（理由は CLAUDE.local.md）。

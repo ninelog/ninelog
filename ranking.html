@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ランキング｜ナインログ</title>
+  <link rel="stylesheet" href="css/common.css">
+  <!-- ランキング（C-7で中身を作る。今は共通部品の見本だけ：C-3） -->
+</head>
+<body>
+  <div id="nl-header"></div>
+  <main class="nl-main">
+    <div id="nl-alert" hidden></div>
+    <div id="nl-placeholder" data-next="C-7"></div>
+  </main>
+
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/liff-app.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/placeholder.js"></script>
+  <script>
+    NinelogUI.boot('ranking', 'ランキング', NinelogPlaceholder.render);
+  </script>
+</body>
+</html>
