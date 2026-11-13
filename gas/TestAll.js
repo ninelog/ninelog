@@ -33,6 +33,7 @@ function testAllNames_() {
     'testTeamStats',       // B-14 チーム全体の成績
     'testBreakdowns',      // B-15 相手別・大会別・区分別の集計
     'testCelebrations',    // B-16 記録達成のお祝い
+    'testCalendar',        // B-17 カレンダー用の情報
   ];
 }
 

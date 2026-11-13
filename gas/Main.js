@@ -47,6 +47,7 @@ function getActions_() {
     getTeamRanking: { handler: handleGetTeamRanking_, write: false },
     getTournamentRanking: { handler: handleGetTournamentRanking_, write: false },
     getTeamStats: { handler: handleGetTeamStats_, write: false },
+    getCalendar: { handler: handleGetCalendar_, write: false },
     createGame: { handler: handleCreateGame_, write: true },
     listTeamGames: { handler: handleListTeamGames_, write: false },
     updateGame: { handler: handleUpdateGame_, write: true },
