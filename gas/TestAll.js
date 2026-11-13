@@ -34,6 +34,7 @@ function testAllNames_() {
     'testBreakdowns',      // B-15 相手別・大会別・区分別の集計
     'testCelebrations',    // B-16 記録達成のお祝い
     'testCalendar',        // B-17 カレンダー用の情報
+    'testPermissions',     // B-18 権限チェックのまとめ
   ];
 }
 
