@@ -27,7 +27,8 @@ function testAllNames_() {
     'testTournamentGames', // B-10b 試合に大会を付ける
     'testBattingRecords',  // B-7（B-11） 打撃成績
     'testPitchingRecords', // B-8（B-11） 投手成績
-    'testMyStats',         // B-9  自分の成績
+    'testMyStats',         // B-9（B-12） 自分の成績
+    'testTeamRanking',     // B-13 チーム内ランキング
   ];
 }
 
