@@ -52,6 +52,20 @@ const CONFIG = {
   JOIN_MAX_FAILS: 10,             // この回数間違えたら、参加の入力を止める
   JOIN_LOCK_MINUTES: 60,          // 止める時間（分）
 
+  // 記録達成のお祝い（CLAUDE.md 11.4章。B-16）
+  CELEBRATION: {
+    MULTI_HIT: 3,     // 猛打賞：1試合でこの数以上の安打
+    MULTI_HR: 2,      // 1試合でこの数以上の本塁打
+    // 通算の節目（この数に届いたとき）。投球回は「回」で書く
+    MILESTONES: {
+      hits: [10, 50, 100, 200, 300],
+      home_runs: [5, 10, 20, 30, 50, 100],
+      rbis: [10, 50, 100],
+      stolen_bases: [10, 30, 50],
+      innings: [10, 50, 100],
+    },
+  },
+
   // 書き込みの順番待ち（LockService）で待つ最長の時間（ミリ秒＝1000分の1秒）。10秒（CLAUDE.md 第4.6章）
   LOCK_WAIT_MS: 10000,
 

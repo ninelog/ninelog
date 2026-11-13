@@ -104,12 +104,15 @@ function addGameRecord_(type, data, user, options) {
   const game = usableGameFor_(values.game_id, user, today);
   assertNoOtherRecord_(t, user.userId, game.game_id, null);
 
+  // お祝い（B-16）は、書き込む前の合計と比べて判定する
+  const celebrations = celebrationsFor_(t.type, user.userId, null, values);
+
   const now = new Date();
   const record = Object.assign({ record_id: Utilities.getUuid(), user_id: user.userId }, values, {
     created_at: now, updated_at: now, deleted_at: '',
   });
   appendRecord_(t.sheet, record);
-  return { record: toRecordSummary_(t, record, game, user, today) };
+  return { record: toRecordSummary_(t, record, game, user, today), celebrations: celebrations };
 }
 
 function listGameRecords_(type, data, user, options) {
@@ -157,16 +160,22 @@ function updateGameRecord_(type, data, user, options) {
     }
   });
   if (Object.keys(changes).length === 0) {
-    return { unchanged: true, record: toRecordSummary_(t, current, game, user, today) };
+    return { unchanged: true, record: toRecordSummary_(t, current, game, user, today), celebrations: [] };
   }
 
   const now = new Date();
   const update = { updated_at: now };
   Object.keys(changes).forEach(function (field) { update[field] = changes[field].newValue; });
+  // お祝い（B-16）は、書き込む前の合計と比べて判定する
+  const celebrations = celebrationsFor_(t.type, user.userId, current, Object.assign({}, current, update));
   updateRecord_(t.sheet, current._row, update);
   appendRecordChanges_(t.type, current.record_id, user.userId, 'update', changes, now);
 
-  return { unchanged: false, record: toRecordSummary_(t, Object.assign({}, current, update), game, user, today) };
+  return {
+    unchanged: false,
+    record: toRecordSummary_(t, Object.assign({}, current, update), game, user, today),
+    celebrations: celebrations,
+  };
 }
 
 function deleteGameRecord_(type, data, user, options) {
