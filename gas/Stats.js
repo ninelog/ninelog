@@ -106,6 +106,17 @@ function seasonOf_(gameDate) {
   return dateText_(gameDate).slice(0, 4);
 }
 
+/** 記録が付いている試合の一覧（同じ試合は1回だけ） */
+function gamesOfRecords_(records, gameOf) {
+  const seen = {};
+  const games = [];
+  records.forEach(function (r) {
+    const g = gameOf(r);
+    if (!seen[g.game_id]) { seen[g.game_id] = true; games.push(g); }
+  });
+  return games;
+}
+
 /** 試合日（yyyy-MM-dd）の月（yyyy-MM）。推移グラフ用（11.4章） */
 function monthOf_(gameDate) {
   return dateText_(gameDate).slice(0, 7);
@@ -255,5 +266,6 @@ function handleGetMyStats_(data, user, options) {
     batting: battingSummary_(batting),
     pitching: pitchingSummary_(pitching),
     trend: monthlyTrend_(batting, pitching, gameOf),
+    breakdowns: breakdowns_(gamesOfRecords_(batting.concat(pitching), gameOf), batting, pitching, false), // B-15
   };
 }

@@ -31,6 +31,7 @@ function testAllNames_() {
     'testTeamRanking',     // B-13 チーム内ランキング
     'testTournamentRanking', // B-13b 大会のランキング
     'testTeamStats',       // B-14 チーム全体の成績
+    'testBreakdowns',      // B-15 相手別・大会別・区分別の集計
   ];
 }
 

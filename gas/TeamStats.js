@@ -56,5 +56,6 @@ function handleGetTeamStats_(data, user, options) {
     winning_pct: { value: pct, text: formatRate_(pct) },
     batting: batting,
     pitching: pitching,
+    breakdowns: breakdowns_(games, battingRecords, pitchingRecords, true), // B-15
   };
 }
