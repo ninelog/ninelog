@@ -5,54 +5,152 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ナインログ</title>
   <!--
-    ナインログのトップ画面（C-1）。
-    今は「準備中」を出すだけ。C-2で LIFF（LINEの中で開く画面）の準備処理 liff.init() を入れる。
-    注意：LIFFはまずこのページを開いてから目的のページへ移動するため、このページにも必ず liff.init() を入れる（CLAUDE.md 3.4章）。
+    ナインログのトップ画面（C-1・C-2）。
+    - LIFFはまずこのページを開いてから目的のページへ移動するため、このページにも必ず liff.init() を入れる（CLAUDE.md 3.4章）。
+      リッチメニューから input.html などを開いたときは、URLに liff.state が付いていて、liff.init の中で自動で移動する。
+    - このページを直接開いたときは、「接続の確認」として、GASが確かめた本人の情報を出す（C-2・8.7章の管理者の登録に使う）。
   -->
   <style>
     :root {
       --bg: #f6f7f5;
+      --card: #ffffff;
       --text: #1f2a24;
       --sub: #5b6b62;
+      --line: #dfe5e1;
       --accent: #1f7a4d;
+      --error: #b3261e;
     }
     @media (prefers-color-scheme: dark) {
       :root {
         --bg: #141816;
+        --card: #1d2320;
         --text: #e8ece9;
         --sub: #a3b0a8;
+        --line: #2f3833;
         --accent: #5cc08a;
+        --error: #f2b8b5;
       }
     }
+    * { box-sizing: border-box; }
     body {
       margin: 0;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
       background: var(--bg);
       color: var(--text);
       font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
-      text-align: center;
-      padding: 0 16px;
+      padding: 32px 16px;
     }
+    main { max-width: 480px; margin: 0 auto; }
     h1 {
-      margin: 0 0 8px;
+      margin: 0 0 4px;
       font-size: 28px;
       color: var(--accent);
       letter-spacing: 0.05em;
+      text-align: center;
     }
-    p {
-      margin: 0;
-      color: var(--sub);
-      font-size: 16px;
+    .lead { margin: 0 0 24px; color: var(--sub); text-align: center; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 16px;
     }
+    .card h2 { margin: 0 0 12px; font-size: 16px; }
+    dl { margin: 0; }
+    dt { color: var(--sub); font-size: 13px; margin-top: 12px; }
+    dt:first-child { margin-top: 0; }
+    dd { margin: 2px 0 0; font-size: 16px; word-break: break-all; }
+    .user-id { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 14px; }
+    button {
+      margin-top: 8px;
+      padding: 8px 14px;
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      background: transparent;
+      color: var(--accent);
+      font-size: 14px;
+    }
+    .note { margin-top: 16px; color: var(--sub); font-size: 13px; line-height: 1.6; }
+    .error { color: var(--error); line-height: 1.6; }
+    [hidden] { display: none !important; }
   </style>
 </head>
 <body>
   <main>
     <h1>ナインログ</h1>
-    <p>準備中です</p>
+    <p class="lead" id="status">読み込み中です…</p>
+
+    <section class="card" id="whoami" hidden>
+      <h2>接続の確認</h2>
+      <dl>
+        <dt>表示名（ランキングに出る名前）</dt>
+        <dd id="display-name"></dd>
+        <dt>LINEの名前</dt>
+        <dd id="line-name"></dd>
+        <dt>管理者</dt>
+        <dd id="is-admin"></dd>
+        <dt>LINEユーザーID</dt>
+        <dd class="user-id" id="user-id"></dd>
+      </dl>
+      <button type="button" id="copy-id">ユーザーIDをコピー</button>
+      <p class="note">
+        この画面の内容は、サーバー（GAS）がLINEに問い合わせて確かめた、あなたの情報です。<br>
+        ユーザーIDは、管理者の登録のときだけ使います。チャットなどに貼り付けないでください。
+      </p>
+    </section>
+
+    <p class="error" id="error" hidden></p>
   </main>
+
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/liff-app.js"></script>
+  <script>
+    (function () {
+      const $ = function (id) { return document.getElementById(id); };
+      const showError = function (message) {
+        $('status').hidden = true;
+        $('error').textContent = message;
+        $('error').hidden = false;
+      };
+
+      // LINEの部品（LIFF）や共通の部品が読み込めなかったときは、止まったままにせず知らせる
+      if (typeof liff === 'undefined' || typeof NinelogApp === 'undefined') {
+        showError('画面の部品を読み込めませんでした。電波のよい場所で、開き直してください');
+        return;
+      }
+
+      // リッチメニューから別のページを開いたときは、liff.init が目的のページへ移動するので、確認は出さない
+      const goingElsewhere = new URLSearchParams(location.search).has('liff.state');
+
+      NinelogApp.start()
+        .then(function (ready) {
+          if (!ready || goingElsewhere) return null;
+          $('status').textContent = 'サーバーに確認しています…';
+          return NinelogApp.call('whoami');
+        })
+        .then(function (me) {
+          if (!me) return;
+          $('display-name').textContent = me.displayName;
+          $('line-name').textContent = me.lineName || '（取得できませんでした）';
+          $('is-admin').textContent = me.isAdmin ? 'はい' : 'いいえ';
+          $('user-id').textContent = me.userId;
+          $('status').textContent = 'LINEのログインと、サーバーでの本人確認ができました';
+          $('whoami').hidden = false;
+        })
+        .catch(function (err) {
+          showError('うまく確認できませんでした：' + (err && err.message ? err.message : err) +
+            (err && err.code ? '（' + err.code + '）' : ''));
+        });
+
+      $('copy-id').addEventListener('click', function () {
+        const id = $('user-id').textContent;
+        navigator.clipboard.writeText(id).then(function () {
+          $('copy-id').textContent = 'コピーしました';
+        }, function () {
+          $('copy-id').textContent = 'コピーできませんでした（長押しで選んでください）';
+        });
+      });
+    })();
+  </script>
 </body>
 </html>
