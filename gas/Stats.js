@@ -106,27 +106,105 @@ function seasonOf_(gameDate) {
   return dateText_(gameDate).slice(0, 4);
 }
 
+/** 試合日（yyyy-MM-dd）の月（yyyy-MM）。推移グラフ用（11.4章） */
+function monthOf_(gameDate) {
+  return dateText_(gameDate).slice(0, 7);
+}
+
+/** 「2026-11」の次の月（12月の次は翌年の「01」） */
+function nextMonth_(month) {
+  let y = Number(month.slice(0, 4));
+  let m = Number(month.slice(5, 7)) + 1;
+  if (m > 12) { y += 1; m = 1; }
+  return y + '-' + ('0' + m).slice(-2);
+}
+
 /**
- * 操作：getMyStats（自分の成績。6.5章）
+ * 月ごとの推移（グラフ用の数字。11.0章の10・11.4章）
+ * - 記録がある最初の月から最後の月まで、1か月ずつ並べる（間の月も入れる）。
+ * - 記録の無い月は、率の value が null（グラフでは点を打たない）。
+ * - avg・ops・era は、その月の記録だけを合計してから計算する。
+ * - cum_avg・cum_ops・cum_era は、選んだ範囲の最初の記録からその月までの積み上げ（B-12で利用者が追加）。
+ *   年度を選んだときは、その年の記録だけなので「1月からの積み上げ」になる。
+ *   通算を選んだときは、年でリセットせず、最初の記録から途切れずに積み上げる。
+ *   記録の無い月も、それまでの記録があれば、前の月と同じ値になる。
+ * @return {Array<Object>} [{ month: '2026-11', batting_games, avg, ops, pitching_games, innings_text, era,
+ *                            cum_avg, cum_ops, cum_era }, ...]
+ */
+function monthlyTrend_(battingRecords, pitchingRecords, gameOf) {
+  const byMonth = {};
+  const add = function (kind) {
+    return function (r) {
+      const m = monthOf_(gameOf(r).game_date);
+      if (!byMonth[m]) byMonth[m] = { batting: [], pitching: [] };
+      byMonth[m][kind].push(r);
+    };
+  };
+  battingRecords.forEach(add('batting'));
+  pitchingRecords.forEach(add('pitching'));
+
+  const months = Object.keys(byMonth).sort();
+  if (months.length === 0) return [];
+  const trend = [];
+  // 積み上げは年でリセットしない（年度を選んだときは、もともとその年の記録しか来ない）
+  let cumBatting = [];
+  let cumPitching = [];
+  for (let m = months[0]; m <= months[months.length - 1]; m = nextMonth_(m)) {
+    const bucket = byMonth[m] || { batting: [], pitching: [] };
+    cumBatting = cumBatting.concat(bucket.batting);
+    cumPitching = cumPitching.concat(bucket.pitching);
+    const b = battingSummary_(bucket.batting);
+    const p = pitchingSummary_(bucket.pitching);
+    const cb = battingSummary_(cumBatting);
+    const cp = pitchingSummary_(cumPitching);
+    trend.push({
+      month: m,
+      batting_games: b.games,
+      avg: b.avg,
+      ops: b.ops,
+      pitching_games: p.games,
+      innings_text: p.innings_text,
+      era: p.era,
+      cum_avg: cb.avg,
+      cum_ops: cb.ops,
+      cum_era: cp.era,
+    });
+  }
+  return trend;
+}
+
+/**
+ * 操作：getMyStats（自分の成績。6.5章・11.7章のG）
  * data: { season: 'all'（通算） または '2026' など（省略すると今年。今年の記録が無ければ通算）,
- *         team_id: チームID（省略すると全チーム合計） }
- * 返事：選んだ年度とチーム、選択欄に出す年度とチームの一覧、打撃と投手の成績
+ *         team_id: チームID または tournament_id: 大会ID（どちらも省略すると全チーム合計。両方は指定できない） }
+ * 返事：選んだ年度と範囲、選択欄に出す年度・チーム・大会の一覧、打撃と投手の成績、月ごとの推移
  */
 function handleGetMyStats_(data, user, options) {
-  // 範囲の選択欄に出すのは、いまはチームだけ（大会は B-12 で足す。11.7章のG）
-  const myTeams = handleListMyTeams_({}, user).teams.filter(function (t) { return t.orgType === ORG_TYPE.TEAM; });
+  const myOrgs = handleListMyTeams_({}, user).teams;
+  const myTeams = myOrgs.filter(function (t) { return t.orgType === ORG_TYPE.TEAM; });
+  const myTournaments = myOrgs.filter(function (t) { return t.orgType === ORG_TYPE.TOURNAMENT; });
+  const given = function (v) { return v !== undefined && v !== null && v !== ''; };
 
-  // 範囲：全チーム合計（null）か、所属しているチームの1つ
+  // 範囲：全チーム合計（どちらも null）か、所属しているチームの1つか、参加している大会の1つ
+  if (given(data.team_id) && given(data.tournament_id)) {
+    throw new AppError(APP_ERROR.BAD_REQUEST, 'チームと大会は、どちらか1つだけ指定してください');
+  }
   let teamId = null;
-  if (data.team_id !== undefined && data.team_id !== null && data.team_id !== '') {
-    const belongs = myTeams.some(function (t) { return t.teamId === data.team_id; });
-    if (!belongs) {
+  let tournamentId = null;
+  if (given(data.team_id)) {
+    if (!myTeams.some(function (t) { return t.teamId === data.team_id; })) {
       throw new AppError(APP_ERROR.FORBIDDEN, '所属していないチームの成績は見られません');
     }
     teamId = data.team_id;
   }
+  if (given(data.tournament_id)) {
+    if (!myTournaments.some(function (t) { return t.teamId === data.tournament_id; })) {
+      throw new AppError(APP_ERROR.FORBIDDEN, '参加していない大会の成績は見られません');
+    }
+    tournamentId = data.tournament_id;
+  }
 
-  // 自分の、削除していない記録（全チーム・全期間）。試合日とチームは、試合（games）から読む（11.2章）
+  // 自分の、削除していない記録（全チーム・全期間）。試合日・チーム・大会は、試合（games）から読む（11.2章）
   const gamesById = gamesById_();
   const mine = function (sheet) {
     return readRecords_(sheet).filter(function (r) {
@@ -159,16 +237,23 @@ function handleGetMyStats_(data, user, options) {
   const pick = function (records) {
     return records.filter(function (r) {
       const g = gameOf(r);
-      return (season === 'all' || seasonOf_(g.game_date) === season) && (!teamId || g.team_id === teamId);
+      return (season === 'all' || seasonOf_(g.game_date) === season)
+        && (!teamId || g.team_id === teamId)
+        && (!tournamentId || g.tournament_id === tournamentId);
     });
   };
+  const batting = pick(allBatting);
+  const pitching = pick(allPitching);
 
   return {
     season: season,
     teamId: teamId,
+    tournamentId: tournamentId,
     seasons: seasons,
     teams: myTeams.map(function (t) { return { teamId: t.teamId, teamNumber: t.teamNumber, teamName: t.teamName }; }),
-    batting: battingSummary_(pick(allBatting)),
-    pitching: pitchingSummary_(pick(allPitching)),
+    tournaments: myTournaments.map(function (t) { return { tournamentId: t.teamId, tournamentNumber: t.teamNumber, tournamentName: t.teamName }; }),
+    batting: battingSummary_(batting),
+    pitching: pitchingSummary_(pitching),
+    trend: monthlyTrend_(batting, pitching, gameOf),
   };
 }
