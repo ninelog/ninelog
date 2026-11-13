@@ -64,8 +64,8 @@
           $('is-admin').textContent = me.isAdmin ? 'はい' : 'いいえ';
           $('user-id').textContent = me.userId;
           $('status').hidden = true;
-          NinelogUI.showOk('LINEのログインと、サーバーでの本人確認ができました');
           $('whoami').hidden = false;
+          NinelogUI.showOk('LINEのログインと、サーバーでの本人確認ができました', $('whoami'));
         }).catch(function (err) {
           $('status').hidden = true;
           NinelogUI.showError(err);

@@ -47,13 +47,13 @@
       if (t.orgType === 'tournament') badges.appendChild(el('span', 'nl-badge', '大会'));
       badges.appendChild(el('span', 'nl-badge', t.role === 'owner' ? '代表者' : 'メンバー'));
       card.appendChild(badges);
-      if (t.role === 'owner') card.appendChild(passphraseForm(t));
+      if (t.role === 'owner') card.appendChild(passphraseForm(t, card));
       box.appendChild(card);
     });
   }
 
   /** 代表者だけ：合言葉を変える（ボタンを押すと入力欄が開く） */
-  function passphraseForm(t) {
+  function passphraseForm(t, card) {
     const wrap = el('div', '');
     const open = el('button', 'nl-chip', '合言葉を変える');
     open.type = 'button';
@@ -86,17 +86,18 @@
     form.appendChild(el('p', 'nl-note', '変えても、いまのメンバーはそのまま残ります。新しく参加する人には、新しい合言葉を伝えてください。'));
 
     open.addEventListener('click', function () { form.hidden = false; open.hidden = true; input.focus(); });
-    cancel.addEventListener('click', function () { form.hidden = true; open.hidden = false; NinelogUI.clearAlerts(form); });
+    cancel.addEventListener('click', function () { form.hidden = true; open.hidden = false; NinelogUI.clearAlerts(card); });
     form.addEventListener('submit', function (e) {
       e.preventDefault();
-      NinelogUI.clearAlerts(form);
+      NinelogUI.clearAlerts(card);
       NinelogUI.withBusy(save, function () {
         return NinelogApp.call('changePassphrase', { team_id: t.teamId, passphrase: input.value }).then(function () {
-          NinelogUI.showOk('「' + t.teamName + '」の合言葉を変えました。');
+          // 入力欄は閉じるので、成功のお知らせはチームの四角の一番下に出す
+          NinelogUI.showOk('「' + t.teamName + '」の合言葉を変えました。', card);
           form.hidden = true;
           open.hidden = false;
           input.value = '';
-        }).catch(function (err) { NinelogUI.showError(err, form); });
+        }).catch(function (err) { NinelogUI.showError(err, card); });
       });
     });
     wrap.appendChild(open);
@@ -118,7 +119,7 @@
         const kind = res.team.orgType === 'tournament' ? '大会' : 'チーム';
         NinelogUI.showOk(res.alreadyMember
           ? 'すでに「' + res.team.teamName + '」に参加しています。'
-          : '「' + res.team.teamName + '」（' + kind + '）に参加しました。');
+          : '「' + res.team.teamName + '」（' + kind + '）に参加しました。', form);
         form.reset();
         return reloadTeams();
       }).catch(function (err) { NinelogUI.showError(err, form); });
@@ -136,7 +137,7 @@
         team_name: $('create-name').value.trim(),
         passphrase: $('create-pass').value,
       }).then(function (res) {
-        NinelogUI.showOk('チーム「' + res.team.teamName + '」（番号 ' + res.team.teamNumber + '）を作りました。番号と合言葉をメンバーに伝えてください。');
+        NinelogUI.showOk('チーム「' + res.team.teamName + '」（番号 ' + res.team.teamNumber + '）を作りました。番号と合言葉をメンバーに伝えてください。', form);
         form.reset();
         return reloadTeams();
       }).catch(function (err) { NinelogUI.showError(err, form); });
@@ -151,7 +152,7 @@
       return NinelogApp.call('updateMyName', { display_name: $('display-name').value.trim() }).then(function (res) {
         $('display-name').value = res.displayName;
         $('name-source').textContent = '自分で決めた名前です（LINEの名前を変えても、こちらは変わりません）。';
-        NinelogUI.showOk('表示名を「' + res.displayName + '」に変えました。');
+        NinelogUI.showOk('表示名を「' + res.displayName + '」に変えました。', form);
       }).catch(function (err) { NinelogUI.showError(err, form); });
     });
   });

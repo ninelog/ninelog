@@ -25,11 +25,11 @@ const NinelogPlaceholder = (function () {
     const check = el('button', 'nl-btn nl-btn--block', '本人確認をためす');
     check.type = 'button';
     check.addEventListener('click', function () {
-      NinelogUI.clearAlerts(form);
+      NinelogUI.clearAlerts(buttons);
       NinelogUI.withBusy(check, function () {
         return NinelogApp.call('whoami').then(function (me) {
-          NinelogUI.showOk('本人確認ができました（表示名：' + me.displayName + '）');
-        }).catch(NinelogUI.showError);
+          NinelogUI.showOk('本人確認ができました（表示名：' + me.displayName + '）', buttons);
+        }).catch(function (err) { NinelogUI.showError(err, buttons); });
       });
     });
     buttons.appendChild(check);

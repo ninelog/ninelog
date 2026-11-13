@@ -52,8 +52,16 @@
       <h2>新しい試合を作る</h2>
       <p class="nl-note" id="new-game-date"></p>
       <div class="nl-field">
-        <label for="game_number">第何試合</label>
-        <select id="game_number" name="game_number"></select>
+        <!-- ふだんは自動で決まった番号だけを出す。「番号を変える」を押したときだけ選択欄を出す（2026-11-14 利用者が決定） -->
+        <p style="margin:0" id="game-number-auto">
+          <strong id="game-number-text"></strong>
+          <button type="button" class="nl-link" id="btn-change-number">番号を変える</button>
+        </p>
+        <div id="game-number-pick" hidden>
+          <label for="game_number">第何試合</label>
+          <select id="game_number" name="game_number"></select>
+          <p class="nl-note">ダブルヘッダーなど、同じ日に複数の試合があるときに区別するための番号です。1日1試合なら変更は不要です。</p>
+        </div>
       </div>
       <div class="nl-field">
         <label for="opponent">対戦相手（30文字まで。空でもよい）</label>

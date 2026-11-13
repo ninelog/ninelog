@@ -4,7 +4,8 @@
  * 各ページの書き方：
  *   <div id="nl-header"></div>
  *   <main class="nl-main">
- *     <div id="nl-alert"></div>   ← お知らせ（エラー・成功）を出す場所
+ *     <div id="nl-alert" hidden></div>   ← 画面全体に関わるお知らせ（通信できないなど）だけを出す場所
+ *     …ボタンを押した結果は、NinelogUI.showOk(文, 四角) / showError(エラー, 四角) で、その四角の一番下に出る…
  *     …画面の中身…
  *   </main>
  *   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
@@ -66,14 +67,22 @@ const NinelogUI = (function () {
       .catch(showError);
   }
 
-  /* ---------- お知らせ ---------- */
+  /* ---------- お知らせ ----------
+   * 決まり（2026-11-14 利用者が決定。CLAUDE.md 11.3章）：
+   * - ボタンを押した結果（成功は緑・エラーは赤）は、押したボタンがある四角（scope）の中の一番下に出す。
+   * - 画面の一番上（#nl-alert）は、通信できない・本人確認ができないなど、画面全体に関わるときだけ使う。
+   *   scope を渡さなかったときと、下の PAGE_WIDE_CODES のエラーは、画面の一番上に出す。
+   */
+  const PAGE_WIDE_CODES = ['NETWORK', 'TOKEN_MISSING', 'TOKEN_EXPIRED', 'TOKEN_INVALID', 'CONFIG_MISSING', 'LINE_UNAVAILABLE'];
 
   /**
    * エラーのお知らせを出す。err は NinelogApp.call が投げたエラー（code・message・details を持つ）。
-   * 入力チェックのエラー（VALIDATION_ERROR）で form を渡したときは、項目ごとの説明を入力欄の近くにも出す。
+   * scope：押したボタンがある四角（form や section）。入力チェックのエラー（VALIDATION_ERROR）は、
+   *        項目ごとの説明を、その四角の中の入力欄の近くにも出す。
    */
-  function showError(err, form) {
-    const box = alertBox();
+  function showError(err, scope) {
+    const pageWide = !scope || PAGE_WIDE_CODES.indexOf(err && err.code) !== -1;
+    const box = pageWide ? topBox() : localBox(scope);
     if (!box) return;
     box.className = 'nl-alert nl-alert--error';
     box.setAttribute('role', 'alert');
@@ -81,31 +90,49 @@ const NinelogUI = (function () {
     box.appendChild(document.createTextNode(messageOf(err)));
 
     const details = (err && err.details) || [];
-    const unplaced = form ? showFieldErrors(form, details) : details;
+    const unplaced = scope ? showFieldErrors(scope, details) : details;
     if (unplaced.length > 0) {
       const ul = document.createElement('ul');
       unplaced.forEach(function (d) { ul.appendChild(el('li', '', d.message)); });
       box.appendChild(ul);
     }
     box.hidden = false;
-    box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    box.scrollIntoView({ behavior: 'smooth', block: pageWide ? 'center' : 'nearest' });
   }
 
-  /** 成功のお知らせを出す（例：「登録しました」） */
-  function showOk(message) {
-    const box = alertBox();
+  /** 成功のお知らせを、scope（押したボタンがある四角）の中の一番下に出す（例：「登録しました」） */
+  function showOk(message, scope) {
+    const box = scope ? localBox(scope) : topBox();
     if (!box) return;
     box.className = 'nl-alert nl-alert--ok';
     box.setAttribute('role', 'status');
     box.textContent = message;
     box.hidden = false;
+    box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
-  /** お知らせと、入力欄の近くのエラーを消す */
-  function clearAlerts(form) {
-    const box = alertBox();
-    if (box) { box.hidden = true; box.innerHTML = ''; }
-    if (form) clearFieldErrors(form);
+  /**
+   * お知らせを消す：画面の一番上のお知らせと、scope の中のお知らせ・入力欄の近くのエラー。
+   * ボタンを押したときの最初に呼ぶ（前の結果が残らないように）。
+   */
+  function clearAlerts(scope) {
+    const top = topBox();
+    if (top) { top.hidden = true; top.innerHTML = ''; }
+    if (scope) {
+      scope.querySelectorAll('[data-nl-local-alert]').forEach(function (n) { n.hidden = true; n.innerHTML = ''; });
+      clearFieldErrors(scope);
+    }
+  }
+
+  /** scope の中の一番下に置く、お知らせの場所（無ければ作る） */
+  function localBox(scope) {
+    let box = scope.querySelector(':scope > [data-nl-local-alert]');
+    if (!box) {
+      box = el('div', 'nl-alert');
+      box.setAttribute('data-nl-local-alert', '');
+    }
+    scope.appendChild(box); // いつも一番下に置く
+    return box;
   }
 
   /** エラーの理由ごとの、利用者向けの文（GASの文があればそれを使う） */
@@ -170,7 +197,7 @@ const NinelogUI = (function () {
 
   /* ---------- 小さな道具 ---------- */
 
-  function alertBox() { return document.getElementById('nl-alert'); }
+  function topBox() { return document.getElementById('nl-alert'); }
 
   /** 要素を作る。文字は textContent で入れる（画面に悪いプログラムが入り込まないように） */
   function el(tag, className, text) {

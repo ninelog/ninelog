@@ -145,6 +145,20 @@ body {
 .nl-alert--error { background: var(--error-soft); color: var(--error); }
 .nl-alert--ok { background: var(--ok-soft); color: var(--ok); }
 .nl-alert ul { margin: 6px 0 0; padding-left: 1.2em; }
+/* 押したボタンがある四角の一番下に出すお知らせ（2026-11-14 の決まり） */
+[data-nl-local-alert] { margin: 12px 0 0; }
+
+/* 文字だけの小さなボタン（「番号を変える」など） */
+.nl-link {
+  border: none;
+  background: none;
+  padding: 4px 0;
+  color: var(--accent);
+  font-size: 14px;
+  font-family: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
 
 /* 入力欄の近くに出す、項目ごとのエラー（VALIDATION_ERROR の details） */
 .nl-field-error { color: var(--error); font-size: 13px; margin-top: 4px; }
@@ -213,3 +227,16 @@ body {
   font-size: 16px;            /* 16px より小さいと、iPhone で入力時に画面が拡大されてしまう */
   font-family: inherit;
 }
+/*
+ * iPhone の日付の入力欄は、そのままだと中身の幅を優先して、四角の右からはみ出してしまう（2026-11-14 利用者が発見）。
+ * 見た目の決まりを外し（appearance: none）、最小の幅を 0 にして、欄の幅を四角に合わせる。
+ */
+.nl-field input[type="date"] {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  line-height: 1.5;
+}
+.nl-field input[type="date"]::-webkit-date-and-time-value { text-align: left; }

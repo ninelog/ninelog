@@ -83,7 +83,7 @@
       $('btn-last').dataset.date = last;
       $('btn-last').textContent = last ? '前回の試合日（' + dateLabel(last) + '）' : '前回の試合日';
     });
-    return Promise.all([recent, loadDay()]).catch(NinelogUI.showError);
+    return Promise.all([recent, loadDay()]).catch(function (err) { NinelogUI.showError(err, $('pick')); });
   }
 
   /** 選んでいる日の試合を読む */
@@ -168,6 +168,7 @@
   function showNewGame() {
     const form = $('new-game');
     NinelogUI.clearAlerts(form);
+    NinelogUI.clearAlerts($('pick')); // 前に作った試合の「作りました」のお知らせを消す
     form.reset();
     $('new-game-date').textContent = '試合日：' + dateLabel(state.date);
 
@@ -182,6 +183,10 @@
     }
     num.value = String(state.nextGameNumber);
     if (!num.value && num.options.length) num.value = num.options[0].value;
+    // ふだんは自動で決まった番号だけを出し、「番号を変える」を押したときだけ選択欄を出す
+    $('game-number-text').textContent = '第' + num.value + '試合として作ります';
+    $('game-number-auto').hidden = false;
+    $('game-number-pick').hidden = true;
 
     const tour = $('tournament_id');
     tour.innerHTML = '';
@@ -231,7 +236,8 @@
     return NinelogUI.withBusy($('btn-create'), function () {
       return NinelogApp.call('createGame', data).then(function (res) {
         state.selectedGameId = res.game.game_id;
-        NinelogUI.showOk('試合を作りました：' + dateLabel(res.game.game_date) + '　' + gameTitle(res.game));
+        // 作ったあとは入力欄を閉じるので、成功のお知らせは試合の一覧の四角の一番下に出す
+        NinelogUI.showOk('試合を作りました：' + dateLabel(res.game.game_date) + '　' + gameTitle(res.game), $('pick'));
         return loadDay();
       }).catch(function (err) {
         NinelogUI.showError(err, form);
@@ -245,22 +251,22 @@
     state.teamId = this.value;
     state.selectedGameId = '';
     try { localStorage.setItem(TEAM_KEY, state.teamId); } catch (e) { /* 覚えられなくても動く */ }
-    NinelogUI.clearAlerts();
+    NinelogUI.clearAlerts($('pick'));
     loadTeam();
   });
 
   function setDate(value) {
     if (!value) return;
     if (value > $('date').max || value < $('date').min) {
-      NinelogUI.showError({ message: '入力できるのは、試合日から30日以内（今日まで）です' });
+      NinelogUI.showError({ message: '入力できるのは、試合日から30日以内（今日まで）です' }, $('pick'));
       $('date').value = state.date;
       return;
     }
     $('date').value = value;
     state.date = value;
     state.selectedGameId = '';
-    NinelogUI.clearAlerts();
-    loadDay().catch(NinelogUI.showError);
+    NinelogUI.clearAlerts($('pick'));
+    loadDay().catch(function (err) { NinelogUI.showError(err, $('pick')); });
   }
   $('date').addEventListener('change', function () { setDate(this.value); });
   $('btn-today').addEventListener('click', function () { setDate(jstDate(0)); });
@@ -268,6 +274,11 @@
   $('btn-last').addEventListener('click', function () { setDate(this.dataset.date); });
 
   $('btn-new').addEventListener('click', showNewGame);
+  $('btn-change-number').addEventListener('click', function () {
+    $('game-number-auto').hidden = true;
+    $('game-number-pick').hidden = false;
+    $('game_number').focus();
+  });
   $('btn-cancel').addEventListener('click', hideNewGame);
   // 大会を選んだら、試合区分を「公式戦」にする（変えてもよい。11.7章のD）
   $('tournament_id').addEventListener('change', function () {
