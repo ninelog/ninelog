@@ -192,7 +192,8 @@ function monthlyTrend_(battingRecords, pitchingRecords, gameOf) {
  */
 function handleGetMyStats_(data, user, options) {
   const myOrgs = handleListMyTeams_({}, user).teams;
-  const myTeams = myOrgs.filter(function (t) { return t.orgType === ORG_TYPE.TEAM; });
+  // 範囲の選択欄：チームと、ひとりの記録（11.8章の6）。大会は別の選択欄
+  const myTeams = myOrgs.filter(function (t) { return isRecordableOrgType_(t.orgType); });
   const myTournaments = myOrgs.filter(function (t) { return t.orgType === ORG_TYPE.TOURNAMENT; });
   const given = function (v) { return v !== undefined && v !== null && v !== ''; };
 
@@ -261,7 +262,7 @@ function handleGetMyStats_(data, user, options) {
     teamId: teamId,
     tournamentId: tournamentId,
     seasons: seasons,
-    teams: myTeams.map(function (t) { return { teamId: t.teamId, teamNumber: t.teamNumber, teamName: t.teamName }; }),
+    teams: myTeams.map(function (t) { return { teamId: t.teamId, teamNumber: t.teamNumber, teamName: t.teamName, orgType: t.orgType }; }),
     tournaments: myTournaments.map(function (t) { return { tournamentId: t.teamId, tournamentNumber: t.teamNumber, tournamentName: t.teamName }; }),
     batting: battingSummary_(batting),
     pitching: pitchingSummary_(pitching),

@@ -33,6 +33,7 @@ function handleCreateGame_(data, user, options) {
     throw new AppError(APP_ERROR.FORBIDDEN, '所属していないチームの試合は作れません');
   }
   if (v.tournament_id) {
+    assertNotSoloForTournament_(v.team_id);
     assertMyTournament_(user.userId, v.tournament_id);
     if (!v.category) v.category = 'official';
   }
@@ -98,8 +99,8 @@ function handleListTeamGames_(data, user, options) {
   const result = {
     games: games.map(function (g) { return toGameSummary_(g, user, today); }),
     opponentSuggestions: opponentSuggestions_(all),
-    // 試合に付けられる大会（本人が参加している大会）
-    myTournaments: handleListMyTeams_({}, user).teams
+    // 試合に付けられる大会（本人が参加している大会）。ひとりの記録の試合には大会を付けないので、空（11.8章の4）
+    myTournaments: isSoloTeam_(teamId) ? [] : handleListMyTeams_({}, user).teams
       .filter(function (t) { return t.orgType === ORG_TYPE.TOURNAMENT; })
       .map(function (t) { return { tournamentId: t.teamId, tournamentNumber: t.teamNumber, tournamentName: t.teamName }; }),
   };
@@ -125,6 +126,7 @@ function handleUpdateGame_(data, user, options) {
   }
   // 大会を「別の大会に変える／新しく付ける」ときは、直す人が参加している大会だけ。外す・そのままは自由
   if (v.tournament_id && v.tournament_id !== String(current.tournament_id || '')) {
+    assertNotSoloForTournament_(current.team_id);
     assertMyTournament_(user.userId, v.tournament_id);
   }
   const clash = activeGamesOf_(current.team_id).some(function (g) {
@@ -231,6 +233,21 @@ function checkChoice_(value, choices, field, message, errors) {
     return '';
   }
   return value;
+}
+
+/** そのIDの組織が、ひとりの記録か */
+function isSoloTeam_(teamId) {
+  const t = findRecord_(CONFIG.SHEET.TEAMS, function (x) { return x.team_id === teamId; });
+  return Boolean(t) && orgTypeOf_(t) === ORG_TYPE.SOLO;
+}
+
+/** ひとりの記録の試合には、大会を付けられない（11.8章の4。B-19） */
+function assertNotSoloForTournament_(teamId) {
+  if (isSoloTeam_(teamId)) {
+    throw new AppError(APP_ERROR.VALIDATION_ERROR, '入力内容に誤りがあります', [
+      { field: 'tournament_id', message: 'ひとりの記録の試合には、大会を付けられません' },
+    ]);
+  }
 }
 
 /**

@@ -172,21 +172,8 @@
     form.reset();
     $('new-game-date').textContent = '試合日：' + dateLabel(state.date);
 
-    const used = state.games.map(function (g) { return g.game_number; });
-    const num = $('game_number');
-    num.innerHTML = '';
-    for (let n = 1; n <= 9; n++) {
-      if (used.indexOf(n) !== -1) continue; // すでにある番号は選べない
-      const o = el('option', '', '第' + n + '試合');
-      o.value = String(n);
-      num.appendChild(o);
-    }
-    num.value = String(state.nextGameNumber);
-    if (!num.value && num.options.length) num.value = num.options[0].value;
-    // ふだんは自動で決まった番号だけを出し、「番号を変える」を押したときだけ選択欄を出す
-    $('game-number-text').textContent = '第' + num.value + '試合として作ります';
-    $('game-number-auto').hidden = false;
-    $('game-number-pick').hidden = true;
+    // 第何試合かは、その日の次の番号に自動で決まる（GASが決める。選ぶ欄は置かない）
+    $('game-number-text').textContent = '第' + state.nextGameNumber + '試合として作ります';
     // その日にまだ試合が無いときは「このままで大丈夫」の説明を、すでにあるときは目立つ注意を出す
     // （同じ試合を2人が別々に作って、試合数が増えてしまうのを防ぐため）
     const hasGames = state.games.length > 0;
@@ -232,7 +219,6 @@
     const data = {
       team_id: state.teamId,
       game_date: state.date,
-      game_number: $('game_number').value,
       opponent: $('opponent').value.trim(),
       tournament_id: $('tournament_id').value,
       category: $('category').value,
@@ -279,12 +265,6 @@
   $('btn-last').addEventListener('click', function () { setDate(this.dataset.date); });
 
   $('btn-new').addEventListener('click', showNewGame);
-  $('btn-change-number').addEventListener('click', function () {
-    $('game-number-auto').hidden = true;
-    $('first-game-note').hidden = true;
-    $('game-number-pick').hidden = false;
-    $('game_number').focus();
-  });
   $('btn-cancel').addEventListener('click', hideNewGame);
   // 大会を選んだら、試合区分を「公式戦」にする（変えてもよい。11.7章のD）
   $('tournament_id').addEventListener('change', function () {

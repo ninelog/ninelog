@@ -24,7 +24,8 @@ function handleGetCalendar_(data, user, options) {
   }
   month = String(month);
 
-  const myTeams = handleListMyTeams_({}, user).teams.filter(function (t) { return t.orgType === ORG_TYPE.TEAM; });
+  // チームと、ひとりの記録（11.8章の6）
+  const myTeams = handleListMyTeams_({}, user).teams.filter(function (t) { return isRecordableOrgType_(t.orgType); });
   let teams = myTeams;
   if (data.team_id !== undefined && data.team_id !== null && data.team_id !== '') {
     teams = myTeams.filter(function (t) { return t.teamId === data.team_id; });
@@ -81,7 +82,7 @@ function handleGetCalendar_(data, user, options) {
   return {
     month: month,
     teamId: teams.length === 1 && data.team_id ? teams[0].teamId : null,
-    teams: myTeams.map(function (t) { return { teamId: t.teamId, teamNumber: t.teamNumber, teamName: t.teamName }; }),
+    teams: myTeams.map(function (t) { return { teamId: t.teamId, teamNumber: t.teamNumber, teamName: t.teamName, orgType: t.orgType }; }),
     days: days,
   };
 }

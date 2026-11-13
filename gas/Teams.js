@@ -3,7 +3,9 @@
  *
  * teams シートは「組織」の表で、org_type 列でチーム（team）と大会（tournament）を区別する。
  * 番号・合言葉・参加のしかたは、チームも大会も同じ。番号は同じ表の中で重ならない。
- * 成績を付けられるのはチームだけ（大会は、試合に結びつけて使う）。
+ * 成績を付けられるのはチームと「ひとりの記録」（大会は、試合に結びつけて使う）。
+ * 2026-11-14 B-19：3つめの種類「ひとり」（solo）を足した。本人だけがメンバー（代表者）の記録場所で、
+ *   番号・合言葉は持たず、誰も参加できない。ランキング・チーム全体の成績には出さない（11.8章）。
  *
  * B-6：作成、自分の一覧／B-6追加（Join.js）：参加、合言葉の変更／B-10a：組織の種類
  */
@@ -12,15 +14,27 @@
 const ORG_TYPE = {
   TEAM: 'team',
   TOURNAMENT: 'tournament',
+  SOLO: 'solo', // ひとりの記録（11.8章。B-19）
 };
+
+/** ひとりの記録場所の名前（固定。11.8章の2） */
+const SOLO_NAME = 'ひとりの記録';
 
 /** シートの org_type を読む（空の古い行はチームとして扱う） */
 function orgTypeOf_(team) {
-  return team.org_type === ORG_TYPE.TOURNAMENT ? ORG_TYPE.TOURNAMENT : ORG_TYPE.TEAM;
+  if (team.org_type === ORG_TYPE.TOURNAMENT) return ORG_TYPE.TOURNAMENT;
+  if (team.org_type === ORG_TYPE.SOLO) return ORG_TYPE.SOLO;
+  return ORG_TYPE.TEAM;
+}
+
+/** 試合を作って成績を付けられる種類か（チームと、ひとりの記録） */
+function isRecordableOrgType_(orgType) {
+  return orgType === ORG_TYPE.TEAM || orgType === ORG_TYPE.SOLO;
 }
 
 /** 画面の文言に使う名前（「チーム」または「大会」） */
 function orgLabel_(orgType) {
+  if (orgType === ORG_TYPE.SOLO) return 'ひとりの記録';
   return orgType === ORG_TYPE.TOURNAMENT ? '大会' : 'チーム';
 }
 
@@ -183,9 +197,52 @@ function toTeamSummary_(team, role) {
   };
 }
 
-/** そのIDの組織がチームで、本人が所属しているか（成績を付けられるのはチームだけ） */
+/**
+ * そのIDの組織が、成績を付けられる種類（チーム・ひとりの記録）で、本人が所属しているか。
+ * （B-19 から、ひとりの記録も含む。ひとりの記録は本人しかメンバーにならない）
+ */
 function isMemberOfTeamType_(userId, teamId) {
   if (!findMembership_(userId, teamId)) return false;
   const team = findRecord_(CONFIG.SHEET.TEAMS, function (t) { return t.team_id === teamId; });
-  return Boolean(team) && orgTypeOf_(team) === ORG_TYPE.TEAM;
+  return Boolean(team) && isRecordableOrgType_(orgTypeOf_(team));
+}
+
+/**
+ * 操作：startSolo（ひとりで記録する。11.8章。B-19）
+ * 本人専用の記録場所を作る。1人に1つだけで、すでにあれば、それを返す（created: false）。
+ * 番号と合言葉は持たないので、誰も参加できない。
+ * @return {{ created: boolean, team: Object }}
+ */
+function handleStartSolo_(data, user) {
+  const existing = findSoloOf_(user.userId);
+  if (existing) return { created: false, team: toTeamSummary_(existing, 'owner') };
+
+  const now = new Date();
+  const team = {
+    team_id: Utilities.getUuid(),
+    team_number: '',
+    team_name: SOLO_NAME,
+    passphrase_hash: '',
+    passphrase_salt: '',
+    created_by: user.userId,
+    created_at: now,
+    updated_at: now,
+    org_type: ORG_TYPE.SOLO,
+  };
+  appendRecord_(CONFIG.SHEET.TEAMS, team);
+  appendRecord_(CONFIG.SHEET.MEMBERSHIPS, {
+    membership_id: Utilities.getUuid(),
+    user_id: user.userId,
+    team_id: team.team_id,
+    role: 'owner',
+    joined_at: now,
+  });
+  return { created: true, team: toTeamSummary_(team, 'owner') };
+}
+
+/** 本人のひとりの記録場所（無ければ null） */
+function findSoloOf_(userId) {
+  return findRecord_(CONFIG.SHEET.TEAMS, function (t) {
+    return orgTypeOf_(t) === ORG_TYPE.SOLO && t.created_by === userId;
+  });
 }

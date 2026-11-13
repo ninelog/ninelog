@@ -36,7 +36,9 @@ function handleJoinTeam_(data, user, options) {
   //   画面からは自動テスト専用の番号のチームに参加できない（見つからないのと同じ扱い）。
   //   自動テストからは、自動テスト専用の番号のチームにしか参加できない。
   const allowed = forAutomatedTest ? isTestTeamNumber_(teamNumber) : !isTestTeamNumber_(teamNumber);
-  const team = allowed ? findTeamByNumber_(teamNumber) : null;
+  const found = allowed ? findTeamByNumber_(teamNumber) : null;
+  // ひとりの記録には誰も参加できない（番号を持たないので見つからないはずだが、念のため。11.8章の3）
+  const team = found && orgTypeOf_(found) !== ORG_TYPE.SOLO ? found : null;
   const correct = Boolean(team) && passphraseMatches_(data.passphrase, team.passphrase_salt, team.passphrase_hash);
 
   if (!correct) {
@@ -82,9 +84,13 @@ function handleChangePassphrase_(data, user) {
     // チームが無い場合も同じ返事にする（ほかのチームの有無を探られないように）
     throw new AppError(APP_ERROR.FORBIDDEN, '合言葉を変えられるのは、そのチームの代表者だけです');
   }
+  const team = findRecord_(CONFIG.SHEET.TEAMS, function (t) { return t.team_id === teamId; });
+  // ひとりの記録には合言葉が無い（誰も参加できない。11.8章の3）
+  if (!team || orgTypeOf_(team) === ORG_TYPE.SOLO) {
+    throw new AppError(APP_ERROR.FORBIDDEN, '合言葉を変えられるのは、そのチームの代表者だけです');
+  }
   const passphrase = validatePassphrase_(data.passphrase);
 
-  const team = findRecord_(CONFIG.SHEET.TEAMS, function (t) { return t.team_id === teamId; });
   const salt = newPassphraseSalt_();
   updateRecord_(CONFIG.SHEET.TEAMS, team._row, {
     passphrase_hash: hashPassphrase_(passphrase, salt),

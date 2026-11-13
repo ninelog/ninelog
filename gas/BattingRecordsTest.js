@@ -163,7 +163,7 @@ function runBattingRecordTests_(results) {
 function countRealRows_() {
   const count = function (name, isTest) { return readRecords_(name).filter(function (r) { return !isTest(r); }).length; };
   return [
-    count(CONFIG.SHEET.TEAMS, function (r) { return isTestTeamNumber_(r.team_number); }),
+    count(CONFIG.SHEET.TEAMS, isTestTeamRow_),
     count(CONFIG.SHEET.GAMES, function (r) { return isTestUserId_(r.created_by); }),
     count(CONFIG.SHEET.BATTING, function (r) { return isTestUserId_(r.user_id); }),
     count(CONFIG.SHEET.PITCHING, function (r) { return isTestUserId_(r.user_id); }),

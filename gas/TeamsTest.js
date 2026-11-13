@@ -187,7 +187,7 @@ function testTeamCreation_(results) {
 
 /** 自動テスト専用の番号ではない（＝本物の）チームの行数 */
 function countRealTeams_() {
-  return readRecords_(CONFIG.SHEET.TEAMS).filter(function (t) { return !isTestTeamNumber_(t.team_number); }).length;
+  return readRecords_(CONFIG.SHEET.TEAMS).filter(function (t) { return !isTestTeamRow_(t); }).length;
 }
 
 function countRows_(name, userId) {

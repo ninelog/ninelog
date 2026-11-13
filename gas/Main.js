@@ -33,6 +33,7 @@ function getActions_() {
     updateMyName: { handler: handleUpdateMyName_, write: true },
     createTeam: { handler: handleCreateTeam_, write: true },
     listMyTeams: { handler: handleListMyTeams_, write: false },
+    startSolo: { handler: handleStartSolo_, write: true },
     joinTeam: { handler: handleJoinTeam_, write: true },
     changePassphrase: { handler: handleChangePassphrase_, write: true },
     addBattingRecord: { handler: handleAddBattingRecord_, write: true },

@@ -35,6 +35,7 @@ function testAllNames_() {
     'testCelebrations',    // B-16 記録達成のお祝い
     'testCalendar',        // B-17 カレンダー用の情報
     'testPermissions',     // B-18 権限チェックのまとめ
+    'testSolo',            // B-19 ひとりの記録
   ];
 }
 
