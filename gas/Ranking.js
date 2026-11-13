@@ -189,6 +189,113 @@ function handleGetTeamRanking_(data, user, options) {
   };
 }
 
+/**
+ * 操作：getTournamentRanking（大会のランキング。11.7章のE・F・K。B-13b）
+ * data: { tournament_id: 大会ID（必須。参加している大会だけ）,
+ *         season: 'all'（通算） または '2026' など（省略すると今年。今年の大会の試合が無ければ通算） }
+ * - 対象は、その大会に結びついた試合（消していない試合）の、消していない記録。チームをまたいで集計する。
+ * - 載るのは、その大会に参加している人だけ（参加していない人の記録は入れない：K）。
+ * - 規定：その選手のチームが、その大会（その年度）で戦った試合の数 × 倍率。
+ *   同じ大会で2つのチームの記録がある人は、両チームの試合の数を足す（F）。
+ * - 表示名の横に出すチーム名（teamName）を行に付ける。2つのチームなら「・」でつなぐ（E）。
+ */
+function handleGetTournamentRanking_(data, user, options) {
+  const myTournaments = handleListMyTeams_({}, user).teams.filter(function (t) { return t.orgType === ORG_TYPE.TOURNAMENT; });
+  if (data.tournament_id === undefined || data.tournament_id === null || data.tournament_id === '') {
+    throw new AppError(APP_ERROR.BAD_REQUEST, 'tournament_id（大会）を指定してください');
+  }
+  const tournament = myTournaments.filter(function (t) { return t.teamId === data.tournament_id; })[0];
+  if (!tournament) {
+    throw new AppError(APP_ERROR.FORBIDDEN, '参加していない大会のランキングは見られません');
+  }
+
+  // その大会の、消していない試合
+  const tourGames = readRecords_(CONFIG.SHEET.GAMES).filter(function (g) {
+    return g.tournament_id === tournament.teamId && !g.deleted_at;
+  });
+
+  const seasons = [];
+  tourGames.forEach(function (g) {
+    const s = seasonOf_(g.game_date);
+    if (seasons.indexOf(s) === -1) seasons.push(s);
+  });
+  seasons.sort().reverse();
+
+  let season = data.season;
+  if (season === undefined || season === null || season === '') {
+    const thisYear = todayText_(options).slice(0, 4);
+    season = seasons.indexOf(thisYear) !== -1 ? thisYear : 'all';
+  }
+  if (season !== 'all' && !/^\d{4}$/.test(String(season))) {
+    throw new AppError(APP_ERROR.BAD_REQUEST, '年度は「all」（通算）か「2026」のような4けたの年で指定してください');
+  }
+  season = String(season);
+
+  // 対象の試合と、チームごとの試合の数
+  const gamesInSeason = {};
+  const gamesPerTeam = {};
+  tourGames.forEach(function (g) {
+    if (season !== 'all' && seasonOf_(g.game_date) !== season) return;
+    gamesInSeason[g.game_id] = g;
+    gamesPerTeam[g.team_id] = (gamesPerTeam[g.team_id] || 0) + 1;
+  });
+
+  // 大会に参加している人
+  const participants = {};
+  readRecords_(CONFIG.SHEET.MEMBERSHIPS).forEach(function (m) {
+    if (m.team_id === tournament.teamId) participants[m.user_id] = true;
+  });
+
+  // 選手ごとに記録と、記録があるチームを集める
+  const byUser = {};
+  const collect = function (sheet, kind) {
+    readRecords_(sheet).forEach(function (r) {
+      const g = gamesInSeason[r.game_id];
+      if (r.deleted_at || !g || !participants[r.user_id]) return;
+      if (!byUser[r.user_id]) byUser[r.user_id] = { batting: [], pitching: [], teamIds: [] };
+      byUser[r.user_id][kind].push(r);
+      if (byUser[r.user_id].teamIds.indexOf(g.team_id) === -1) byUser[r.user_id].teamIds.push(g.team_id);
+    });
+  };
+  collect(CONFIG.SHEET.BATTING, 'batting');
+  collect(CONFIG.SHEET.PITCHING, 'pitching');
+
+  const teamNames = {};
+  readRecords_(CONFIG.SHEET.TEAMS).forEach(function (t) { teamNames[t.team_id] = String(t.team_name); });
+  const names = displayNamesById_();
+
+  const players = Object.keys(byUser).map(function (userId) {
+    const p = byUser[userId];
+    const teamIds = p.teamIds.slice().sort(function (a, b) { return teamNames[a].localeCompare(teamNames[b], 'ja'); });
+    const games = teamIds.reduce(function (sum, id) { return sum + gamesPerTeam[id]; }, 0);
+    return {
+      displayName: names[userId] || CONFIG.DEFAULT_DISPLAY_NAME,
+      teamName: teamIds.map(function (id) { return teamNames[id]; }).join('・'),
+      isMe: userId === user.userId,
+      batting: battingSummary_(p.batting),
+      pitching: pitchingSummary_(p.pitching),
+      qualifyPa: games * CONFIG.QUALIFY_PA_PER_GAME,
+      qualifyOuts: games * CONFIG.QUALIFY_IP_PER_GAME * 3,
+    };
+  });
+
+  // 大会に出たチームと、その大会（その年度）での試合の数（試合の多い順。同じならチーム名の順）
+  const teamGames = Object.keys(gamesPerTeam).map(function (id) {
+    return { teamName: teamNames[id] || '', games: gamesPerTeam[id] };
+  }).sort(function (a, b) { return (b.games - a.games) || a.teamName.localeCompare(b.teamName, 'ja'); });
+
+  return {
+    tournamentId: tournament.teamId,
+    tournamentName: tournament.teamName,
+    season: season,
+    seasons: seasons,
+    tournaments: myTournaments.map(function (t) { return { tournamentId: t.teamId, tournamentNumber: t.teamNumber, tournamentName: t.teamName }; }),
+    tournamentGames: Object.keys(gamesInSeason).length,
+    teamGames: teamGames,
+    categories: computeRankings_(players),
+  };
+}
+
 /** 足りない投球回の表示。1回に満たないときは「0回2/3」ではなく「2/3回」にする */
 function formatShortInnings_(outs) {
   return outs < 3 ? outs + '/3回' : formatInnings_(outs);

@@ -29,6 +29,7 @@ function testAllNames_() {
     'testPitchingRecords', // B-8（B-11） 投手成績
     'testMyStats',         // B-9（B-12） 自分の成績
     'testTeamRanking',     // B-13 チーム内ランキング
+    'testTournamentRanking', // B-13b 大会のランキング
   ];
 }
 
