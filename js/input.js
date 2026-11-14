@@ -3,9 +3,11 @@
  * C-4a：チームと試合日を選び、その日の試合を選ぶ（無ければ作る）。CLAUDE.md 11.1章・11.3章
  * C-13：選んだ試合の情報を直す・消す（作った人と代表者だけ）
  * C-4：選んだ試合に、打撃成績を入れる（入力済みなら直す）。第4.4章・4.5章
+ * C-5：選んだ試合に、投手成績を入れる（回・アウト数0〜2・自責点）。第4.4b章
  *
  * 使うGASの操作：listMyTeams・startSolo・listTeamGames・createGame・updateGame・deleteGame・getCalendar・
- *               listMyBattingRecords・addBattingRecord・updateBattingRecord
+ *               listMyBattingRecords・addBattingRecord・updateBattingRecord・
+ *               listMyPitchingRecords・addPitchingRecord・updatePitchingRecord
  */
 (function () {
   const $ = function (id) { return document.getElementById(id); };
@@ -24,7 +26,7 @@
     myTournaments: [],
     selectedGameId: '',
     editingGameId: '', // 情報を直している試合（C-13）
-    myBatting: null,   // 選んでいるチームの、自分の打撃成績 { game_id: 記録 }（読み込む前は null。C-4）
+    mine: null,        // 選んでいるチームの、自分の成績 { batting: { game_id: 記録 }, pitching: {…} }（読み込む前は null。C-4・C-5）
     recordGameId: '',  // 成績の入力欄に入れてある試合（同じ試合なら、入れかけの数を消さない）
     atBatsTouched: false, // 打数を自分で直したか（直したら、打数を自動で入れない）
   };
@@ -42,6 +44,12 @@
   /** 打数の自動計算に使う項目（打数 ＝ 打席 − 四球 − 死球 − 犠打 − 犠飛） */
   const AT_BAT_SOURCES = ['plate_appearances', 'walks', 'hbp', 'sacrifice_bunts', 'sacrifice_flies'];
   const MAX_COUNT = 99; // 1試合の数の上限（GASの Config.js の MAX_COUNT_PER_GAME と同じ）
+  /** 投手の3項目（第4.4b章。[項目名, 表示名, 上限]）。投球回は「回」と「アウト（0〜2）」に分けて入れ、GASが 回×3＋アウト で保存する */
+  const PITCHING_ITEMS = [
+    ['innings', '投球回（回）', MAX_COUNT],
+    ['partial_outs', 'アウト（0〜2）', 2],
+    ['earned_runs', '自責点', MAX_COUNT],
+  ];
 
   /* ---------- 日付（日本時間） ---------- */
 
@@ -137,20 +145,26 @@
 
   /** チームを選んだとき：カレンダーの○●と、選んでいる日の試合を読む */
   function loadTeam() {
-    state.myBatting = null;
+    state.mine = null;
     state.recordGameId = '';
     return Promise.all([loadMarks(calendar.month()), loadDay(), loadMine()])
       .catch(function (err) { NinelogUI.showError(err, $('pick')); });
   }
 
-  /** 選んでいるチームの、自分の打撃成績を読む（入力済みかどうかを知るため。C-4） */
+  /** 選んでいるチームの、自分の打撃・投手の成績を読む（入力済みかどうかを知るため。C-4・C-5） */
   function loadMine() {
     const teamId = state.teamId;
-    return NinelogApp.call('listMyBattingRecords', { team_id: teamId }).then(function (res) {
+    return Promise.all([
+      NinelogApp.call('listMyBattingRecords', { team_id: teamId }),
+      NinelogApp.call('listMyPitchingRecords', { team_id: teamId }),
+    ]).then(function (res) {
       if (teamId !== state.teamId) return; // 読んでいる間にチームが切り替わったら使わない
-      const map = {};
-      res.records.forEach(function (r) { map[r.game_id] = r; });
-      state.myBatting = map;
+      const byGame = function (records) {
+        const map = {};
+        records.forEach(function (r) { map[r.game_id] = r; });
+        return map;
+      };
+      state.mine = { batting: byGame(res[0].records), pitching: byGame(res[1].records) };
       state.recordGameId = ''; // 入力欄を入れ直す
       renderRecordCard();
     });
@@ -401,35 +415,54 @@
     return 'この試合の成績は、' + teamName + 'のランキングに反映されます。';
   }
 
-  /* ---------- 3. 成績を入れる：打撃（C-4。第4.4章・4.5章） ---------- */
+  /* ---------- 3. 成績を入れる：打撃（C-4。第4.4章・4.5章）と投手（C-5。第4.4b章） ---------- */
 
-  /** 13項目の入力欄を作る（最初に1回だけ）。－・＋で1ずつ増やせて、数字を直接打つこともできる */
-  function buildBattingCounts() {
-    const box = $('batting-counts');
-    BATTING_ITEMS.forEach(function (item) {
+  /**
+   * 成績の種類ごとの決まり。
+   * prefix：入力欄の id の頭（打撃は b-、投手は p-）。items：[項目名, 表示名, 上限]
+   */
+  const RECORD_KINDS = {
+    batting: {
+      label: '打撃', prefix: 'b-', form: 'batting-form', status: 'batting-status', save: 'btn-save-batting',
+      items: BATTING_ITEMS.map(function (i) { return [i[0], i[1], MAX_COUNT]; }),
+      add: 'addBattingRecord', update: 'updateBattingRecord',
+    },
+    pitching: {
+      label: '投手', prefix: 'p-', form: 'pitching-form', status: 'pitching-status', save: 'btn-save-pitching',
+      items: PITCHING_ITEMS,
+      add: 'addPitchingRecord', update: 'updatePitchingRecord',
+    },
+  };
+
+  /** 入力欄を作る（最初に1回だけ）。－・＋で1ずつ増やせて、数字を直接打つこともできる */
+  function buildCounts(kind) {
+    const k = RECORD_KINDS[kind];
+    const box = $(kind + '-counts');
+    k.items.forEach(function (item) {
       const field = item[0];
+      const id = k.prefix + field;
       const wrap = el('div', 'nl-count');
       const label = el('label', field === 'at_bats' ? 'nl-count__label--auto' : '', item[1]);
-      label.setAttribute('for', 'b-' + field);
+      label.setAttribute('for', id);
       const step = el('div', 'nl-step');
       const minus = el('button', '', '－');
       minus.type = 'button';
       minus.setAttribute('aria-label', item[1] + 'を1減らす');
       const input = el('input', '');
       input.type = 'number';
-      input.id = 'b-' + field;
-      input.name = field; // GASのエラー（details の field）を、この欄の下に出すため
+      input.id = id;
+      input.name = field; // GASのエラー（details の field）を、この行の下に出すため
       input.inputMode = 'numeric';
       input.min = '0';
-      input.max = String(MAX_COUNT);
+      input.max = String(item[2]);
       input.value = '0';
       const plus = el('button', '', '＋');
       plus.type = 'button';
       plus.setAttribute('aria-label', item[1] + 'を1増やす');
-      minus.addEventListener('click', function () { setCount(field, countOf(field) - 1, true); });
-      plus.addEventListener('click', function () { setCount(field, countOf(field) + 1, true); });
+      minus.addEventListener('click', function () { step1(kind, field, -1); });
+      plus.addEventListener('click', function () { step1(kind, field, 1); });
       input.addEventListener('focus', function () { input.select(); });
-      input.addEventListener('input', function () { changed(field, true); });
+      input.addEventListener('input', function () { changed(kind, field, true); });
       step.appendChild(minus);
       step.appendChild(input);
       step.appendChild(plus);
@@ -440,27 +473,47 @@
   }
 
   /** 欄の数（空や数でないものは0） */
-  function countOf(field) {
-    const n = parseInt($('b-' + field).value, 10);
+  function countOf(kind, field) {
+    const n = parseInt($(RECORD_KINDS[kind].prefix + field).value, 10);
     return isNaN(n) ? 0 : n;
   }
 
-  function setCount(field, value, byUser) {
-    $('b-' + field).value = String(Math.max(0, Math.min(MAX_COUNT, value)));
-    changed(field, byUser);
+  function setCount(kind, field, value) {
+    const item = RECORD_KINDS[kind].items.filter(function (i) { return i[0] === field; })[0];
+    $(RECORD_KINDS[kind].prefix + field).value = String(Math.max(0, Math.min(item[2], value)));
+  }
+
+  /** －・＋を押したとき */
+  function step1(kind, field, diff) {
+    // 投手のアウト：2の次は「回」を1増やして0に、0の前は「回」を1減らして2にする（3アウトで1回）
+    if (kind === 'pitching' && field === 'partial_outs') {
+      const outs = countOf('pitching', 'innings') * 3 + countOf('pitching', 'partial_outs') + diff;
+      if (outs >= 0 && outs <= MAX_COUNT * 3 + 2) {
+        setCount('pitching', 'innings', Math.floor(outs / 3));
+        setCount('pitching', 'partial_outs', outs % 3);
+      }
+    } else {
+      setCount(kind, field, countOf(kind, field) + diff);
+    }
+    changed(kind, field, true);
   }
 
   /** 打数 ＝ 打席 − 四球 − 死球 − 犠打 − 犠飛（0より小さくしない） */
   function autoAtBats() {
-    return Math.max(0, countOf('plate_appearances') - countOf('walks') - countOf('hbp') -
-      countOf('sacrifice_bunts') - countOf('sacrifice_flies'));
+    return Math.max(0, countOf('batting', 'plate_appearances') - countOf('batting', 'walks') - countOf('batting', 'hbp') -
+      countOf('batting', 'sacrifice_bunts') - countOf('batting', 'sacrifice_flies'));
   }
 
-  /** 欄が変わったとき：打数を自分で直していなければ、打数を自動で入れ直す */
-  function changed(field, byUser) {
-    if (field === 'at_bats' && byUser) state.atBatsTouched = true;
-    if (!state.atBatsTouched && AT_BAT_SOURCES.indexOf(field) !== -1) {
-      $('b-at_bats').value = String(autoAtBats());
+  /** 欄が変わったとき：打数を自分で直していなければ打数を入れ直す。投手は投球回の表示を直す */
+  function changed(kind, field, byUser) {
+    if (kind === 'batting') {
+      if (field === 'at_bats' && byUser) state.atBatsTouched = true;
+      if (!state.atBatsTouched && AT_BAT_SOURCES.indexOf(field) !== -1) {
+        $('b-at_bats').value = String(autoAtBats());
+      }
+    } else {
+      $('pitching-total').textContent = '投球回：' + countOf('pitching', 'innings') + '回' +
+        (countOf('pitching', 'partial_outs') ? countOf('pitching', 'partial_outs') + '/3' : '');
     }
   }
 
@@ -468,7 +521,7 @@
     $('tab-batting').setAttribute('aria-pressed', tab === 'batting' ? 'true' : 'false');
     $('tab-pitching').setAttribute('aria-pressed', tab === 'pitching' ? 'true' : 'false');
     $('batting-form').hidden = tab !== 'batting';
-    $('pitching-panel').hidden = tab !== 'pitching';
+    $('pitching-form').hidden = tab !== 'pitching';
   }
 
   /**
@@ -480,57 +533,70 @@
     const g = selectedGame();
     $('record-card').hidden = !g;
     if (!g) { state.recordGameId = ''; return; }
-    const form = $('batting-form');
-    const status = $('batting-status');
-    const save = $('btn-save-batting');
-    if (!state.myBatting) {
+    if (!state.mine) {
       // 自分の成績をまだ読み込んでいない（入力済みかどうかわからない）
-      status.hidden = false;
-      status.textContent = '読み込み中です…';
-      save.disabled = true;
+      Object.keys(RECORD_KINDS).forEach(function (kind) {
+        const k = RECORD_KINDS[kind];
+        $(k.status).hidden = false;
+        $(k.status).textContent = '読み込み中です…';
+        $(k.save).disabled = true;
+      });
       return;
     }
     if (state.recordGameId === g.game_id) return;
     state.recordGameId = g.game_id;
-    NinelogUI.clearAlerts(form);
-    save.disabled = false;
-    const rec = state.myBatting[g.game_id];
-    BATTING_ITEMS.forEach(function (item) {
-      $('b-' + item[0]).value = String(rec ? Number(rec[item[0]]) || 0 : 0);
+    Object.keys(RECORD_KINDS).forEach(function (kind) { fillKind(kind, g); });
+  }
+
+  /** 1つの種類（打撃か投手）の入力欄に、その試合の自分の記録（無ければ0）を入れる */
+  function fillKind(kind, g) {
+    const k = RECORD_KINDS[kind];
+    const rec = state.mine[kind][g.game_id];
+    NinelogUI.clearAlerts($(k.form));
+    $(k.save).disabled = false;
+    k.items.forEach(function (item) {
+      $(k.prefix + item[0]).value = String(rec ? Number(rec[item[0]]) || 0 : 0);
     });
-    // 入力済みの打数が自動の数と違えば、自分で直した打数として扱う（自動で上書きしない）
-    state.atBatsTouched = Boolean(rec) && countOf('at_bats') !== autoAtBats();
+    if (kind === 'batting') {
+      // 入力済みの打数が自動の数と違えば、自分で直した打数として扱う（自動で上書きしない）
+      state.atBatsTouched = Boolean(rec) && countOf('batting', 'at_bats') !== autoAtBats();
+    } else {
+      changed('pitching', 'innings', false);
+    }
+    // 切り替えのボタンに、入力済みの印を付ける
+    $('tab-' + kind).textContent = k.label + (rec ? ' ✓' : '');
+    const status = $(k.status);
     if (rec) {
       status.hidden = false;
-      status.textContent = 'この試合の打撃成績は入力済みです。直すときは、数を変えて「打撃成績を直す」を押してください（' +
-        dateLabel(rec.editable_until) + 'まで直せます）。';
-      save.textContent = '打撃成績を直す';
+      status.textContent = 'この試合の' + k.label + '成績は入力済みです。直すときは、数を変えて「' + k.label +
+        '成績を直す」を押してください（' + dateLabel(rec.editable_until) + 'まで直せます）。';
+      $(k.save).textContent = k.label + '成績を直す';
     } else {
       status.hidden = true;
-      save.textContent = '打撃成績を保存する';
+      $(k.save).textContent = k.label + '成績を保存する';
     }
   }
 
-  function saveBatting(e) {
+  function saveRecord(kind, e) {
     e.preventDefault();
+    const k = RECORD_KINDS[kind];
     const g = selectedGame();
-    const form = $('batting-form');
-    if (!g || !state.myBatting) return;
+    const form = $(k.form);
+    if (!g || !state.mine) return;
     NinelogUI.clearAlerts(form);
-    const rec = state.myBatting[g.game_id];
+    const rec = state.mine[kind][g.game_id];
     const data = { game_id: g.game_id };
-    BATTING_ITEMS.forEach(function (item) { data[item[0]] = $('b-' + item[0]).value.trim(); });
+    k.items.forEach(function (item) { data[item[0]] = $(k.prefix + item[0]).value.trim(); });
     if (rec) data.record_id = rec.record_id;
-    return NinelogUI.withBusy($('btn-save-batting'), function () {
-      return NinelogApp.call(rec ? 'updateBattingRecord' : 'addBattingRecord', data).then(function (res) {
-        state.myBatting[res.record.game_id] = res.record;
-        state.recordGameId = '';
-        renderRecordCard();
+    return NinelogUI.withBusy($(k.save), function () {
+      return NinelogApp.call(rec ? k.update : k.add, data).then(function (res) {
+        state.mine[kind][res.record.game_id] = res.record;
+        fillKind(kind, g);
         // カレンダーの●を付け直す（印が読めなくても、保存はできている）
         loadMarks(calendar.month()).catch(function () { /* そのまま */ });
         // お祝い（res.celebrations）の表示は C-12 で作る
         NinelogUI.showOk(res.unchanged ? '変わったところはありませんでした。'
-          : rec ? '打撃成績を直しました。' : '打撃成績を保存しました。', form);
+          : k.label + '成績を' + (rec ? '直しました。' : '保存しました。'), form);
       }).catch(function (err) { NinelogUI.showError(err, form); });
     });
   }
@@ -634,8 +700,10 @@
   $('btn-today').addEventListener('click', function () { setDate(jstDate(0)); });
 
   $('btn-new').addEventListener('click', showNewGame);
-  buildBattingCounts();
-  $('batting-form').addEventListener('submit', saveBatting);
+  buildCounts('batting');
+  buildCounts('pitching');
+  $('batting-form').addEventListener('submit', function (e) { saveRecord('batting', e); });
+  $('pitching-form').addEventListener('submit', function (e) { saveRecord('pitching', e); });
   $('tab-batting').addEventListener('click', function () { setRecordTab('batting'); });
   $('tab-pitching').addEventListener('click', function () { setRecordTab('pitching'); });
   $('btn-edit-game').addEventListener('click', openEdit);

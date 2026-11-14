@@ -185,10 +185,17 @@
         </div>
       </form>
 
-      <!-- 投手（C-5 で作る） -->
-      <div id="pitching-panel" hidden>
-        <p class="nl-note">投手の成績の入力は、このあと（C-5）ここに作ります。</p>
-      </div>
+      <!-- 投手（C-5。第4.4b章）：投球回は「回」と「アウト（0〜2）」に分けて入れる -->
+      <form id="pitching-form" novalidate hidden>
+        <p class="nl-alert nl-alert--info" id="pitching-status" style="margin:0 0 12px" hidden></p>
+        <p class="nl-total" id="pitching-total" aria-live="polite"></p>
+        <div class="nl-counts" id="pitching-counts"></div>
+        <p class="nl-note">3アウトで1回です。例：5回と1/3なら、回に5、アウトに1を入れます。アウトの＋を2から押すと、回が1つ増えてアウトが0に戻ります。</p>
+        <p class="nl-note">自責点は、投手の責任で取られた点です（味方のエラーがなければ取られなかった点は入れません）。</p>
+        <div class="nl-actions">
+          <button type="submit" class="nl-btn nl-btn--block" id="btn-save-pitching">投手成績を保存する</button>
+        </div>
+      </form>
     </section>
   </main>
 

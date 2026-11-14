@@ -361,3 +361,6 @@ body {
 }
 .nl-step input::-webkit-outer-spin-button, .nl-step input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .nl-count .nl-field-error { flex-basis: 100%; margin-top: 0; }
+
+/* 投球回の合計の表示（C-5） */
+.nl-total { font-size: 17px; font-weight: 700; margin: 0 0 8px; }
