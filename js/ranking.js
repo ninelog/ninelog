@@ -61,10 +61,10 @@
   function load(data) {
     const my = ++state.loading;
     const isTour = Boolean(data.tournament_id);
-    $('content').classList.add('is-loading');
+    const done = NinelogUI.busy($('content')); // 読み込み中の表示（くるくる）
     return NinelogApp.call(isTour ? 'getTournamentRanking' : 'getTeamRanking', data).then(function (res) {
+      done();
       if (my !== state.loading) return;
-      $('content').classList.remove('is-loading');
       // チームと大会の返事を、画面で同じように扱えるようにそろえる
       res.kind = isTour ? 'tour' : 'team';
       res.orgName = isTour ? res.tournamentName : res.teamName;
@@ -76,8 +76,8 @@
       renderRows();
       syncView(res);
     }, function (err) {
+      done();
       if (my !== state.loading) return;
-      $('content').classList.remove('is-loading');
       throw err;
     });
   }
@@ -375,16 +375,16 @@
     const key = res.teamId + '|' + res.season;
     if (state.stats[key]) { renderTeamStats(state.stats[key]); return; }
     const my = ++state.statsLoading;
-    $('team-view').classList.add('is-loading');
+    const done = NinelogUI.busy($('team-view'));
     NinelogUI.clearAlerts($('filters'));
     NinelogApp.call('getTeamStats', { team_id: res.teamId, season: res.season }).then(function (stats) {
+      done();
       if (my !== state.statsLoading) return;
-      $('team-view').classList.remove('is-loading');
       state.stats[key] = stats;
       renderTeamStats(stats);
     }).catch(function (err) {
+      done();
       if (my !== state.statsLoading) return;
-      $('team-view').classList.remove('is-loading');
       NinelogUI.showError(err, $('filters'));
     });
   }

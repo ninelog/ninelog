@@ -224,7 +224,7 @@
   function loadDay() {
     const box = $('games');
     box.innerHTML = '';
-    box.appendChild(el('p', 'nl-loading', '試合を読み込んでいます…'));
+    box.appendChild(NinelogUI.loadingEl('試合を読み込んでいます…'));
     hideNewGame();
     return NinelogApp.call('listTeamGames', { team_id: state.teamId, game_date: state.date }).then(function (res) {
       state.games = res.games.slice().sort(function (a, b) { return a.game_number - b.game_number; });

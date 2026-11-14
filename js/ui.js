@@ -62,8 +62,16 @@ const NinelogUI = (function () {
       showError({ message: '画面の部品を読み込めませんでした。電波のよい場所で、開き直してください' });
       return;
     }
+    // 最初に出している「読み込み中です…」に、くるくると5秒の切り替えを付ける
+    document.querySelectorAll('.nl-loading').forEach(function (p) { enhanceLoading(p); });
     NinelogApp.start()
-      .then(function (ready) { if (ready && onReady) return onReady(); })
+      .then(function (ready) {
+        if (!ready || !onReady) return null;
+        return Promise.resolve(onReady()).then(function () {
+          // 画面を開いてから、中身が出るまでの時間を残す（「接続の確認」の画面で見られる）
+          if (NinelogApp.recordTiming) NinelogApp.recordTiming('画面：' + (title || pageKey), performance.now(), true);
+        });
+      })
       .catch(showError);
   }
 
@@ -188,12 +196,91 @@ const NinelogUI = (function () {
     if (button.disabled) return Promise.resolve();
     button.disabled = true;
     button.setAttribute('aria-busy', 'true');
+    // ボタンの中を「くるくる＋読み込み中…」にする（終わったら元の文字に戻す。2026-11-14 利用者が追加）
+    const saved = Array.prototype.slice.call(button.childNodes);
+    const label = el('span', 'nl-busy-label', LOADING_TEXT);
+    const marker = el('span', 'nl-busy-inner');
+    marker.appendChild(spinner());
+    marker.appendChild(label);
+    button.textContent = '';
+    button.appendChild(marker);
+    const timer = slowTimer(label);
     return Promise.resolve()
       .then(work)
       .finally(function () {
+        clearTimeout(timer);
         button.disabled = false;
         button.removeAttribute('aria-busy');
+        // 処理の中でボタンの文字が書き換えられていたら（「保存する」→「直す」など）、それを残す
+        if (button.contains(marker)) {
+          button.textContent = '';
+          saved.forEach(function (n) { button.appendChild(n); });
+        }
       });
+  }
+
+  /* ---------- 読み込み中の表示（2026-11-14 利用者が追加） ---------- */
+
+  const LOADING_TEXT = '読み込み中…';
+  const SLOW_TEXT = '時間がかかっています。そのままお待ちください';
+  const SLOW_MS = 5000; // これ以上かかったら、文を変える
+
+  /** くるくる回る印 */
+  function spinner() {
+    const s = el('span', 'nl-spinner');
+    s.setAttribute('aria-hidden', 'true');
+    return s;
+  }
+
+  /** 5秒たっても終わっていなければ、文を「時間がかかっています…」に変える */
+  function slowTimer(label) {
+    return setTimeout(function () {
+      if (label.isConnected) label.textContent = SLOW_TEXT;
+    }, SLOW_MS);
+  }
+
+  /**
+   * 「くるくる＋読み込み中…」の行を作る（一覧などを読み込む間に、その場所に置く）。
+   * text を渡すと、その文で出す（5秒たつと「時間がかかっています…」に変わる）。
+   */
+  function loadingEl(text) {
+    const p = el('p', 'nl-loading');
+    enhanceLoading(p, text || LOADING_TEXT);
+    return p;
+  }
+
+  /** すでにある「読み込み中です…」の行に、くるくると5秒の切り替えを付ける */
+  function enhanceLoading(p, text) {
+    if (p.querySelector('.nl-spinner')) return;
+    const label = el('span', 'nl-busy-label', text || p.textContent || LOADING_TEXT);
+    p.textContent = '';
+    p.appendChild(spinner());
+    p.appendChild(label);
+    p.setAttribute('role', 'status');
+    slowTimer(label);
+  }
+
+  /**
+   * 四角（container）を読み込み中にする：うすくして、見えている場所の真ん中に「くるくる＋読み込み中…」を出す。
+   * 画面を切り替えたとき（年度・範囲・チームを選び直したときなど）に使う。
+   * @return {Function} 読み込みが終わったら呼ぶ（表示を消す）
+   */
+  function busy(container) {
+    const overlay = el('div', 'nl-busy');
+    overlay.setAttribute('role', 'status');
+    const pill = el('div', 'nl-busy__pill');
+    const label = el('span', 'nl-busy-label', LOADING_TEXT);
+    pill.appendChild(spinner());
+    pill.appendChild(label);
+    overlay.appendChild(pill);
+    container.classList.add('is-loading');
+    container.insertBefore(overlay, container.firstChild);
+    const timer = slowTimer(label);
+    return function done() {
+      clearTimeout(timer);
+      overlay.remove();
+      if (!container.querySelector(':scope > .nl-busy')) container.classList.remove('is-loading');
+    };
   }
 
   /* ---------- 小さな道具 ---------- */
@@ -210,6 +297,8 @@ const NinelogUI = (function () {
 
   return {
     PAGES: PAGES,
+    busy: busy,
+    loadingEl: loadingEl,
     boot: boot,
     renderHeader: renderHeader,
     showError: showError,

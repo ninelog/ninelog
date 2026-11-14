@@ -43,6 +43,18 @@
         ユーザーIDは、管理者の登録のときだけ使います。チャットなどに貼り付けないでください。
       </p>
     </section>
+
+    <!-- 通信にかかった時間（2026-11-14：読み込みを速くする方法を考えるため。このスマホに残した最近の40件） -->
+    <section class="nl-card" id="timing" hidden>
+      <h2>通信にかかった時間</h2>
+      <p class="nl-note" style="margin-top:0">このスマホで最近使った操作の時間です（成績や名前は残していません）。それぞれの画面を何回か開いてから、ここを見てください。</p>
+      <table class="nl-table" id="timing-summary"></table>
+      <details class="nl-fold nl-fold--sm">
+        <summary><span>1回ずつ見る</span></summary>
+        <table class="nl-table" id="timing-list"></table>
+      </details>
+      <p><button type="button" class="nl-btn nl-btn--sub" id="timing-clear">記録を消す</button></p>
+    </section>
   </main>
 
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
@@ -66,11 +78,44 @@
           $('status').hidden = true;
           $('whoami').hidden = false;
           NinelogUI.showOk('LINEのログインと、サーバーでの本人確認ができました', $('whoami'));
+          renderTiming(); // 今の確認にかかった時間も出す
         }).catch(function (err) {
           $('status').hidden = true;
           NinelogUI.showError(err);
+          renderTiming();
         });
       });
+
+      /** 通信にかかった時間を、操作ごとのまとめ（回数・平均・いちばん長い）と、1回ずつの表で出す */
+      function renderTiming() {
+        const list = NinelogApp.readTimings();
+        $('timing').hidden = false;
+        const sum = $('timing-summary');
+        const rows = $('timing-list');
+        sum.innerHTML = '';
+        rows.innerHTML = '';
+        const sec = function (ms) { return (ms / 1000).toFixed(1) + '秒'; };
+        const tr = function (table, cells, head) {
+          const row = document.createElement('tr');
+          cells.forEach(function (c) { const td = document.createElement(head ? 'th' : 'td'); td.textContent = c; row.appendChild(td); });
+          table.appendChild(row);
+        };
+        if (!list.length) { tr(sum, ['まだ記録がありません'], false); return; }
+        const by = {};
+        list.forEach(function (x) { (by[x.name] = by[x.name] || []).push(x.ms); });
+        tr(sum, ['操作', '回数', '平均', '最長'], true);
+        Object.keys(by).sort(function (a, b) {
+          const avg = function (k) { return by[k].reduce(function (s, v) { return s + v; }, 0) / by[k].length; };
+          return avg(b) - avg(a);
+        }).forEach(function (k) {
+          const v = by[k];
+          tr(sum, [k, String(v.length), sec(v.reduce(function (s, x) { return s + x; }, 0) / v.length), sec(Math.max.apply(null, v))], false);
+        });
+        tr(rows, ['時刻', '操作', '時間', ''], true);
+        list.slice().reverse().forEach(function (x) { tr(rows, [x.at, x.name, sec(x.ms), x.ok ? '' : '失敗'], false); });
+      }
+      if (!goingElsewhere) renderTiming();
+      $('timing-clear').addEventListener('click', function () { NinelogApp.clearTimings(); renderTiming(); });
 
       $('copy-id').addEventListener('click', function () {
         navigator.clipboard.writeText($('user-id').textContent).then(function () {

@@ -44,10 +44,10 @@
   /** 選んでいる年度と範囲で、GASに成績を聞く */
   function load(data) {
     const my = ++loading;
-    $('content').classList.add('is-loading');
+    const done = NinelogUI.busy($('content')); // 読み込み中の表示（くるくる）
     return NinelogApp.call('getMyStats', data).then(function (res) {
+      done();
       if (my !== loading) return; // 読んでいる間に選び直したら、古い結果は使わない
-      $('content').classList.remove('is-loading');
       shown = res;
       renderFilters(res);
       render(res);
@@ -56,8 +56,8 @@
       syncCalendar(res);
       renderRecords();
     }, function (err) {
+      done();
       if (my !== loading) return;
-      $('content').classList.remove('is-loading');
       throw err;
     });
   }
@@ -482,7 +482,7 @@
     $('rec-more-box').hidden = true;
     if (!recs.lists || !shown) {
       $('rec-note').textContent = '';
-      box.appendChild(el('p', 'nl-loading', '読み込み中です…'));
+      box.appendChild(NinelogUI.loadingEl());
       return;
     }
     const k = REC_KINDS[recs.kind];

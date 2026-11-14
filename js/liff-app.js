@@ -9,6 +9,30 @@
  */
 const NinelogApp = (function () {
   const RETRY_KEY = 'ninelog_token_retry'; // 札の期限切れでやり直したかの印（1回だけやり直すため）
+  const TIMING_KEY = 'ninelog_timing';      // 通信にかかった時間の記録（このスマホだけ。最近の40件）
+  const TIMING_MAX = 40;
+
+  /**
+   * かかった時間を残す（2026-11-14：読み込みを速くする方法を考えるため）。
+   * 残すのは、操作の名前・時間・成功したか・時刻だけ（成績や名前などの中身は残さない）。
+   */
+  function recordTiming(name, ms, ok) {
+    try {
+      const list = JSON.parse(localStorage.getItem(TIMING_KEY) || '[]');
+      const now = new Date();
+      const pad = function (n) { return ('0' + n).slice(-2); };
+      list.push({ at: (now.getMonth() + 1) + '/' + now.getDate() + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds()),
+        name: name, ms: Math.round(ms), ok: ok });
+      localStorage.setItem(TIMING_KEY, JSON.stringify(list.slice(-TIMING_MAX)));
+    } catch (e) { /* 残せなくても動く */ }
+  }
+
+  function readTimings() {
+    try { return JSON.parse(localStorage.getItem(TIMING_KEY) || '[]'); } catch (e) { return []; }
+  }
+  function clearTimings() {
+    try { localStorage.removeItem(TIMING_KEY); } catch (e) { /* そのまま */ }
+  }
 
   /**
    * LIFF（LINEの中で開く画面の仕組み）を準備する。
@@ -17,7 +41,9 @@ const NinelogApp = (function () {
    * @return {Promise<boolean>} 準備ができたら true。ログイン画面へ移動したときは false
    */
   function start() {
+    const t0 = performance.now();
     return liff.init({ liffId: NINELOG_CONFIG.LIFF_ID }).then(function () {
+      recordTiming('LINEの準備（liff.init）', performance.now() - t0, true);
       if (!liff.isLoggedIn()) {
         liff.login({ redirectUri: location.href });
         return false;
@@ -41,6 +67,17 @@ const NinelogApp = (function () {
   }
 
   function send(action, data) {
+    const t0 = performance.now();
+    return sendOnce(action, data).then(function (result) {
+      recordTiming(action, performance.now() - t0, true);
+      return result;
+    }, function (err) {
+      recordTiming(action, performance.now() - t0, false);
+      throw err;
+    });
+  }
+
+  function sendOnce(action, data) {
     const idToken = liff.getIDToken();
     return fetch(NINELOG_CONFIG.GAS_URL, {
       method: 'POST',
@@ -77,5 +114,5 @@ const NinelogApp = (function () {
       });
   }
 
-  return { start: start, call: call };
+  return { start: start, call: call, recordTiming: recordTiming, readTimings: readTimings, clearTimings: clearTimings };
 })();
