@@ -38,7 +38,7 @@
     // ひとりの記録場所がまだ無い人にだけ、「ひとりで記録する」を出す（11.8章の1・10）
     $('solo-card').hidden = teams.some(function (t) { return t.orgType === 'solo'; });
     if (teams.length === 0) {
-      box.appendChild(el('p', 'nl-empty', 'まだ、どのチームにも入っていません。下の「チームに参加する」か「チームを作る」から始めてください。'));
+      box.appendChild(el('p', 'nl-empty', 'まだ、どのチームにも大会にも入っていません。下の「チーム・大会に参加する」か「チーム・大会を作る」から始めてください。'));
       return;
     }
     teams.forEach(function (t) {
@@ -136,19 +136,42 @@
     });
   });
 
+  /* ---------- チーム・大会を作る（C-9・C-9b） ---------- */
+
+  /** 選んでいる種類（'team' か 'tournament'） */
+  function createOrgType() {
+    const checked = $('create-form').querySelector('input[name="org_type"]:checked');
+    return checked ? checked.value : 'team';
+  }
+
+  /** 種類に合わせて、名前の欄・説明・ボタンの文字を変える */
+  function updateCreateLabels() {
+    const isTournament = createOrgType() === 'tournament';
+    $('create-name-label').textContent = (isTournament ? '大会名' : 'チーム名') + '（30文字まで）';
+    $('btn-create').textContent = isTournament ? '大会を作る' : 'チームを作る';
+    $('tournament-hint').hidden = !isTournament;
+  }
+  $('create-form').querySelectorAll('input[name="org_type"]').forEach(function (r) {
+    r.addEventListener('change', updateCreateLabels);
+  });
+
   $('create-form').addEventListener('submit', function (e) {
     e.preventDefault();
     const form = this;
+    const orgType = createOrgType();
     NinelogUI.clearAlerts(form);
     NinelogUI.withBusy($('btn-create'), function () {
       return NinelogApp.call('createTeam', {
-        org_type: 'team',
+        org_type: orgType,
         team_number: $('create-number').value.trim(),
         team_name: $('create-name').value.trim(),
         passphrase: $('create-pass').value,
       }).then(function (res) {
-        NinelogUI.showOk('チーム「' + res.team.teamName + '」（番号 ' + res.team.teamNumber + '）を作りました。番号と合言葉をメンバーに伝えてください。', form);
+        const kind = orgType === 'tournament' ? '大会' : 'チーム';
+        NinelogUI.showOk(kind + '「' + res.team.teamName + '」（番号 ' + res.team.teamNumber + '）を作りました。番号と合言葉を' +
+          (orgType === 'tournament' ? '参加する人' : 'メンバー') + 'に伝えてください。', form);
         form.reset();
+        updateCreateLabels(); // 種類は「チーム」に戻る
         return reloadTeams();
       }).catch(function (err) { NinelogUI.showError(err, form); });
     });

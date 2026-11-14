@@ -148,6 +148,8 @@ body {
 }
 .nl-alert--error { background: var(--error-soft); color: var(--error); }
 .nl-alert--ok { background: var(--ok-soft); color: var(--ok); }
+/* 案内（成績がどこに反映されるか など）：成功・エラーと区別するため、地の色と線だけ */
+.nl-alert--info { background: var(--bg); color: var(--text); border: 1px solid var(--line); }
 /* 注意（作る前に気をつけてほしいこと）：黄色の地に、左に太い線 */
 .nl-alert--warn {
   background: var(--warn-soft);
@@ -223,6 +225,23 @@ body {
 }
 .nl-empty { color: var(--sub); font-size: 14px; padding: 8px 0; }
 .nl-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+
+/* ---------- どれか1つを選ぶ丸いボタン（「チーム／大会」など。C-9b） ---------- */
+.nl-radios { border: none; padding: 0; margin: 0 0 14px; display: flex; gap: 8px; flex-wrap: wrap; }
+.nl-radios legend { font-size: 14px; color: var(--sub); margin-bottom: 6px; padding: 0; }
+.nl-radios label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--card);
+  cursor: pointer;
+}
+.nl-radios label:has(input:checked) { border: 2px solid var(--accent); background: var(--accent-soft); padding: 7px 13px; }
+.nl-radios input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); }
 
 /* ---------- 入力欄（C-4以降で使う） ---------- */
 .nl-field { margin-bottom: 14px; }

@@ -18,16 +18,16 @@
     <p class="nl-loading" id="loading">読み込み中です…</p>
 
     <div id="content" hidden>
-      <!-- 所属しているチーム -->
+      <!-- 所属しているチーム・大会 -->
       <section class="nl-card">
-        <h2>所属しているチーム</h2>
+        <h2>所属しているチーム・大会</h2>
         <div id="teams" class="nl-choices"></div>
       </section>
 
-      <!-- チームに参加する -->
+      <!-- チーム・大会に参加する -->
       <form class="nl-card" id="join-form" novalidate>
-        <h2>チームに参加する</h2>
-        <p class="nl-note" style="margin:0 0 12px">チームの代表者から教えてもらった「番号」と「合言葉」を入れてください。</p>
+        <h2>チーム・大会に参加する</h2>
+        <p class="nl-note" style="margin:0 0 12px">代表者から教えてもらった「番号」と「合言葉」を入れてください。大会の番号と合言葉でも参加できます。</p>
         <div class="nl-field">
           <label for="join-number">番号</label>
           <input type="text" id="join-number" name="team_number" inputmode="numeric" autocomplete="off" maxlength="9">
@@ -40,17 +40,23 @@
         <p class="nl-note">合言葉を10回まちがえると、1時間は入力できなくなります。</p>
       </form>
 
-      <!-- チームを作る -->
+      <!-- チーム・大会を作る（C-9・C-9b） -->
       <form class="nl-card" id="create-form" novalidate>
-        <h2>チームを作る</h2>
-        <p class="nl-note" style="margin:0 0 12px">作った人が、そのチームの代表者になります。作ったあとで、番号と合言葉をメンバーに伝えてください。</p>
+        <h2>チーム・大会を作る</h2>
+        <p class="nl-note" style="margin:0 0 12px">作った人が、その代表者になります。作ったあとで、番号と合言葉をメンバーに伝えてください。</p>
+        <fieldset class="nl-radios">
+          <legend>作るもの</legend>
+          <label><input type="radio" name="org_type" value="team" checked> チーム</label>
+          <label><input type="radio" name="org_type" value="tournament"> 大会（リーグ戦も）</label>
+        </fieldset>
+        <p class="nl-note" id="tournament-hint" hidden style="margin:-4px 0 14px">大会の試合として登録した試合の成績が、チームをまたいで大会のランキングに集計されます。大会に参加する人は、それぞれのチームの試合を作るときに、この大会を選びます。</p>
         <div class="nl-field">
-          <label for="create-number">番号（数字1〜9けた。ほかのチームと重ならない番号）</label>
+          <label for="create-number">番号（数字1〜9けた。ほかのチーム・大会と重ならない番号）</label>
           <input type="text" id="create-number" name="team_number" inputmode="numeric" autocomplete="off" maxlength="9">
           <p class="nl-note" id="number-hint">1999以上の番号を使ってください（1〜1998はテスト用です）。</p>
         </div>
         <div class="nl-field">
-          <label for="create-name">チーム名（30文字まで）</label>
+          <label for="create-name" id="create-name-label">チーム名（30文字まで）</label>
           <input type="text" id="create-name" name="team_name" autocomplete="off" maxlength="30">
         </div>
         <div class="nl-field">

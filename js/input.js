@@ -185,10 +185,21 @@
     const team = state.teams.filter(function (t) { return t.teamId === state.teamId; })[0];
     $('selected-title').textContent = dateLabel(g.game_date) + '　' + gameTitle(g);
     $('selected-sub').textContent = (team ? team.teamName : '') + (g.tournament_name ? '　／　' + g.tournament_name : '');
+    $('selected-reflect').textContent = reflectText(g, team);
     // 大会に参加していない人には、大会のランキングに載らないことを知らせる（11.7章のK）
     const note = $('selected-note');
     note.hidden = !(g.tournament_id && !g.in_my_tournament);
     note.textContent = 'この大会に参加していないので、この試合の成績は大会のランキングには載りません（チームのランキングには載ります）。';
+  }
+
+  /** 選んだ試合の成績が、どこに反映されるか（2026-11-14 利用者が決定） */
+  function reflectText(g, team) {
+    if (team && team.orgType === 'solo') return 'この試合の成績は、ひとりの記録に保存されます（あなただけが見られます）。';
+    const teamName = team ? team.teamName : 'チーム';
+    if (g.tournament_id && g.in_my_tournament) {
+      return 'この試合の成績は、' + teamName + 'と' + g.tournament_name + 'のランキングに反映されます。';
+    }
+    return 'この試合の成績は、' + teamName + 'のランキングに反映されます。';
   }
 
   /* ---------- 新しい試合を作る ---------- */

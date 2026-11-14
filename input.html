@@ -70,6 +70,7 @@
       <div class="nl-field" id="tournament-field">
         <label for="tournament_id">大会（任意）</label>
         <select id="tournament_id" name="tournament_id"></select>
+        <p class="nl-note">大会の試合のときだけ選んでください（練習試合なら選ばない）。</p>
       </div>
       <div class="nl-field">
         <label for="category">試合区分</label>
@@ -100,6 +101,8 @@
       <h2>2. 成績を入れる試合</h2>
       <p class="nl-choice__title" id="selected-title"></p>
       <p class="nl-choice__sub" id="selected-sub"></p>
+      <!-- 成績がどこに反映されるか（2026-11-14 利用者が決定） -->
+      <p class="nl-alert nl-alert--info" id="selected-reflect" style="margin:12px 0 0"></p>
       <p class="nl-note" id="selected-note" hidden></p>
       <p class="nl-note">打撃・投手の成績の入力は、このあと（C-4・C-5）この下に作ります。</p>
     </section>
