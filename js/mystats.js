@@ -5,7 +5,9 @@
  * - 打撃（率4つと13項目の合計・塁打）と投手（防御率・投球回・自責点）を出す
  * - 計算はGAS（getMyStats）が行い、画面は出すだけ（6.3章と同じ考え方）
  *
- * 使うGASの操作：getMyStats
+ * C-6b：記録カレンダー（●自分の成績・○チームの試合。日を押すと、その日の試合と成績、「直す」「入力する」）。11.3章
+ *
+ * 使うGASの操作：getMyStats・getCalendar・listMyBattingRecords・listMyPitchingRecords
  */
 (function () {
   const $ = function (id) { return document.getElementById(id); };
@@ -24,6 +26,7 @@
   let shown = null; // いま画面に出している成績（GASの返事）
 
   function start() {
+    initCalendar();
     return load({}).then(function () {
       $('loading').hidden = true;
       $('content').hidden = false;
@@ -43,6 +46,7 @@
       shown = res;
       renderFilters(res);
       render(res);
+      syncCalendar(res);
     }, function (err) {
       if (my !== loading) return;
       $('content').classList.remove('is-loading');
@@ -175,6 +179,144 @@
     s.appendChild(el('span', 'nl-stat__label', label));
     s.appendChild(el('span', 'nl-stat__value', String(value === undefined || value === null ? 0 : value)));
     return s;
+  }
+
+  /* ---------- 記録カレンダー（C-6b。11.3章・11.0章の16） ---------- */
+
+  const RESULT_LABELS = { win: '勝ち', lose: '負け', draw: '引き分け' };
+  const cal = {
+    view: null,      // カレンダーの部品（js/calendar.js）
+    teamId: null,    // カレンダーに出しているチーム（'' は全チーム。null はまだ読んでいない）
+    days: {},        // { 'yyyy-MM-dd': getCalendar の日 }
+    selected: '',    // 押した日
+    records: null,   // 自分の記録 { batting: { record_id: 記録 }, pitching: {…} }（読む前は null）
+    loading: 0,
+  };
+
+  /** 日本時間の今日（yyyy-MM-dd） */
+  function today() {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  }
+  /** 「2026-11-08」→「11月8日（日）」 */
+  function dateLabel(text) {
+    const p = text.split('-').map(Number);
+    const week = '日月火水木金土'.charAt(new Date(p[0], p[1] - 1, p[2]).getDay());
+    return p[1] + '月' + p[2] + '日（' + week + '）';
+  }
+
+  function initCalendar() {
+    cal.view = NinelogCalendar.create($('cal'), {
+      max: today(), // 未来の日は押せない（試合は未来には作れない）
+      onSelect: function (date) { cal.selected = date; renderDay(); },
+      onMonthChange: function (month) { loadCalendar(month); },
+    });
+    renderDay();
+    // 自分の記録（全チーム）を1回だけ読む：押した日に、自分の成績の数を出すため
+    Promise.all([NinelogApp.call('listMyBattingRecords', {}), NinelogApp.call('listMyPitchingRecords', {})]).then(function (res) {
+      const byId = function (records) {
+        const map = {};
+        records.forEach(function (r) { map[r.record_id] = r; });
+        return map;
+      };
+      cal.records = { batting: byId(res[0].records), pitching: byId(res[1].records) };
+      renderDay();
+    }).catch(function (err) { NinelogUI.showError(err, $('cal-card')); });
+  }
+
+  /**
+   * 範囲の選択に合わせて、カレンダーのチームを決める。
+   * チームか、ひとりの記録を選んでいるときはそのチームだけ。全チーム合計と大会のときは、所属している全チーム
+   * （カレンダーの○はチームの試合なので、大会では出せない。11.7章のJ）。
+   */
+  function syncCalendar(res) {
+    const teamId = res.teamId || '';
+    let note = 'あなたが成績を入れた日に●、チームの試合がある日に○が付きます。日付を押すと、その日の試合と成績が出ます。';
+    if (res.tournamentId) note += '（大会を選んでいるときも、カレンダーは所属しているすべてのチームの試合を出します）';
+    $('cal-note').textContent = note;
+    if (cal.teamId === teamId) return;
+    cal.teamId = teamId;
+    loadCalendar(cal.view.month());
+  }
+
+  /** その月の○●と、日ごとの試合を読む */
+  function loadCalendar(month) {
+    const my = ++cal.loading;
+    const data = { month: month };
+    if (cal.teamId) data.team_id = cal.teamId;
+    NinelogUI.clearAlerts($('cal-card'));
+    return NinelogApp.call('getCalendar', data).then(function (res) {
+      if (my !== cal.loading) return; // 読んでいる間に月やチームを変えたら使わない
+      const marks = {};
+      cal.days = {};
+      res.days.forEach(function (d) {
+        marks[d.date] = { game: d.has_team_game, mine: d.has_my_record };
+        cal.days[d.date] = d;
+      });
+      cal.view.setMarks(marks);
+      renderDay();
+    }).catch(function (err) {
+      if (my === cal.loading) NinelogUI.showError(err, $('cal-card'));
+    });
+  }
+
+  /** 押した日の試合と、自分の成績を出す */
+  function renderDay() {
+    const box = $('day');
+    box.innerHTML = '';
+    if (!cal.selected) return;
+    box.appendChild(el('h3', 'nl-day__title', dateLabel(cal.selected)));
+    const day = cal.days[cal.selected];
+    if (!day || !day.games.length) {
+      box.appendChild(el('p', 'nl-empty', 'この日のチームの試合はありません。'));
+      return;
+    }
+    day.games.forEach(function (g) { box.appendChild(dayGame(g)); });
+  }
+
+  function dayGame(g) {
+    const row = el('div', 'nl-row');
+    const main = el('div', 'nl-row__main');
+    main.appendChild(el('span', 'nl-row__name', '第' + g.game_number + '試合　' + (g.opponent ? 'vs ' + g.opponent : '（相手は未入力）')));
+    if (g.tournament_name) main.appendChild(el('span', 'nl-badge', g.tournament_name));
+    if (RESULT_LABELS[g.result]) main.appendChild(el('span', 'nl-badge', RESULT_LABELS[g.result]));
+    main.appendChild(el('span', 'nl-row__meta', g.team_name));
+    row.appendChild(main);
+
+    // 自分の成績（打撃・投手）
+    const has = Boolean(g.my_batting_record_id || g.my_pitching_record_id);
+    if (has && !cal.records) {
+      row.appendChild(el('p', 'nl-note', '成績を読み込み中です…'));
+    } else if (has) {
+      const b = cal.records.batting[g.my_batting_record_id];
+      const p = cal.records.pitching[g.my_pitching_record_id];
+      if (b) row.appendChild(el('p', 'nl-day__line', '打撃：' + battingLine(b)));
+      if (p) row.appendChild(el('p', 'nl-day__line', '投手：' + p.innings_text + '　自責点' + p.earned_runs));
+    } else {
+      row.appendChild(el('p', 'nl-note', 'この試合のあなたの成績は、まだありません。'));
+    }
+
+    // 「直す」「入力する」：試合日から30日以内だけ（11.0章の16）。押すと「成績を入力」で、この試合を選んだ状態で開く
+    if (g.can_input) {
+      const params = new URLSearchParams({ team: g.team_id, date: g.game_date, game: g.game_id });
+      if (!g.my_batting_record_id && g.my_pitching_record_id) params.set('tab', 'pitching');
+      const a = el('a', 'nl-chip', has ? '成績を直す' : '成績を入力する');
+      a.href = 'input.html?' + params.toString();
+      const actions = el('div', 'nl-row__actions');
+      actions.appendChild(a);
+      row.appendChild(actions);
+    } else {
+      row.appendChild(el('p', 'nl-note', '試合日から30日を過ぎたので、入力・修正はできません。'));
+    }
+    return row;
+  }
+
+  /** 「4打席 3打数 2安打　本塁打1　打点2」のように、0でない数を短く並べる */
+  function battingLine(b) {
+    const parts = [b.plate_appearances + '打席 ' + b.at_bats + '打数 ' + b.hits + '安打'];
+    [['doubles', '二塁打'], ['triples', '三塁打'], ['home_runs', '本塁打'], ['rbis', '打点'], ['walks', '四球'],
+      ['hbp', '死球'], ['sacrifice_bunts', '犠打'], ['sacrifice_flies', '犠飛'], ['strikeouts', '三振'], ['stolen_bases', '盗塁']]
+      .forEach(function (f) { if (Number(b[f[0]])) parts.push(f[1] + b[f[0]]); });
+    return parts.join('　');
   }
 
   $('season').addEventListener('change', reload);

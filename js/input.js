@@ -4,6 +4,7 @@
  * C-13：選んだ試合の情報を直す・消す（作った人と代表者だけ）
  * C-4：選んだ試合に、打撃成績を入れる（入力済みなら直す）。第4.4章・4.5章
  * C-5：選んだ試合に、投手成績を入れる（回・アウト数0〜2・自責点）。第4.4b章
+ * C-6b：「自分の成績」の記録カレンダーから、日付と試合を選んだ状態で開ける（URLの team・date・game・tab）
  *
  * 使うGASの操作：listMyTeams・startSolo・listTeamGames・createGame・updateGame・deleteGame・getCalendar・
  *               listMyBattingRecords・addBattingRecord・updateBattingRecord・
@@ -76,15 +77,36 @@
 
   let calendar = null; // 試合日を選ぶカレンダー（js/calendar.js）
 
+  /** ページのURLの「?team=…&date=…&game=…&tab=…」を読む。読んだら、URLからは消す（開き直したときに、また選ばれないように） */
+  function linkParams() {
+    const p = new URLSearchParams(location.search);
+    const link = { team: p.get('team') || '', date: p.get('date') || '', game: p.get('game') || '', tab: p.get('tab') || '' };
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(link.date)) link.date = '';
+    if (link.team || link.date || link.game) {
+      try { history.replaceState(null, '', location.pathname); } catch (e) { /* 消せなくても動く */ }
+    }
+    return link;
+  }
+
   function start() {
     const today = jstDate(0);
     state.max = today;
     state.min = jstDate(-30); // 試合日から30日以内だけ入力できる（4.5b章）
     state.date = today;
+
+    // 「自分の成績」の記録カレンダーから来たとき（C-6b）：input.html?team=…&date=…&game=…&tab=pitching
+    // その日・その試合を選んだ状態で開く。30日より前の日などは使わない
+    const link = linkParams();
+    if (link.date && link.date >= state.min && link.date <= state.max) {
+      state.date = link.date;
+      state.selectedGameId = link.game;
+    }
+    if (link.tab === 'pitching') setRecordTab('pitching');
+
     calendar = NinelogCalendar.create($('date-cal'), {
       min: state.min,
       max: state.max,
-      selected: today,
+      selected: state.date,
       onSelect: function (date) { setDate(date); },
       onMonthChange: function (month) { loadMarks(month); },
     });
@@ -92,7 +114,13 @@
 
     return NinelogApp.call('listMyTeams').then(function (res) {
       $('loading').hidden = true;
-      return showTeams(res.teams, '');
+      return Promise.resolve(showTeams(res.teams, link.team)).then(function () {
+        // 試合を選んだ状態で開いたときは、成績の入力欄まで動かす
+        // （開いたばかりなので、なめらかに動かさず、すぐに飛ぶ）
+        if (link.game && state.selectedGameId === link.game) {
+          $('record-card').scrollIntoView({ block: 'start' });
+        }
+      });
     }).catch(function (err) {
       $('loading').hidden = true;
       NinelogUI.showError(err);

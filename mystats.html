@@ -8,7 +8,8 @@
   <!--
     自分の成績（CLAUDE.md 6.5章・11.7章のG・11.8章）
     - C-6：年度と範囲（全チーム合計・各チーム・ひとりの記録・各大会）を選んで、打撃と投手の成績を見る
-    - C-6b：記録カレンダー、C-6c：推移グラフ、C-6d：相手別・大会別の集計（このあと作る）
+    - C-6b：記録カレンダー（●自分の成績・○チームの試合。日を押すと、その日の成績と「直す」「入力する」）
+    - C-6c：推移グラフ、C-6d：相手別・大会別の集計（このあと作る）
   -->
 </head>
 <body>
@@ -44,6 +45,7 @@
         <h2>打撃 <span class="nl-h2__sub" id="batting-games"></span></h2>
         <div class="nl-tiles nl-tiles--4" id="batting-rates"></div>
         <div class="nl-stats" id="batting-counts"></div>
+        <p class="nl-note">率は、選んだ範囲の試合の数をすべて足してから計算しています。分母が0のときは「-」と出ます。</p>
       </section>
 
       <!-- 投手 -->
@@ -53,7 +55,14 @@
         <p class="nl-note">防御率 ＝ 自責点 × 7 ÷ 投球回（7回制のため）。</p>
       </section>
 
-      <p class="nl-note">率は、選んだ範囲の試合の数をすべて足してから計算しています。分母が0のときは「-」と出ます。</p>
+
+      <!-- 記録カレンダー（C-6b。11.3章）：●自分の成績・○チームの試合。日を押すと、その日の試合と成績 -->
+      <section class="nl-card" id="cal-card">
+        <h2>記録カレンダー</h2>
+        <p class="nl-note" id="cal-note" style="margin-top:0"></p>
+        <div id="cal"></div>
+        <div id="day" aria-live="polite"></div>
+      </section>
     </div>
   </main>
 
@@ -61,6 +70,7 @@
   <script src="js/config.js"></script>
   <script src="js/liff-app.js"></script>
   <script src="js/ui.js"></script>
+  <script src="js/calendar.js"></script>
   <script src="js/mystats.js"></script>
 </body>
 </html>

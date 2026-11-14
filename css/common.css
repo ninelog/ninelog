@@ -380,3 +380,8 @@ body {
 .nl-stat__label { font-size: 13px; color: var(--sub); }
 .nl-stat__value { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .is-loading { opacity: .5; transition: opacity .2s; }
+
+/* 記録カレンダーで押した日（C-6b） */
+.nl-day__title { font-size: 15px; margin: 14px 0 4px; }
+.nl-day__line { margin: 6px 0 0; font-size: 14px; line-height: 1.6; }
+#day .nl-row__meta { margin-left: 0; width: 100%; }
