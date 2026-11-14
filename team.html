@@ -34,10 +34,12 @@
         <div class="nl-field">
           <label for="join-number">番号</label>
           <input type="text" id="join-number" name="team_number" inputmode="numeric" autocomplete="off" maxlength="9">
+          <p class="nl-note">番号：代表者から教えてもらった数字（1〜9けた）。</p>
         </div>
         <div class="nl-field">
           <label for="join-pass">合言葉</label>
           <input type="text" id="join-pass" name="passphrase" autocomplete="off" maxlength="32">
+          <p class="nl-note">合言葉：代表者から教えてもらった言葉。全角・半角、大文字・小文字、ひらがな・カタカナの違いは気にしなくて大丈夫です。</p>
         </div>
         <button type="submit" class="nl-btn nl-btn--block" id="btn-join">参加する</button>
         <p class="nl-note">合言葉を10回まちがえると、1時間は入力できなくなります。</p>
@@ -54,18 +56,19 @@
         </fieldset>
         <p class="nl-note" id="tournament-hint" hidden style="margin:-4px 0 14px">大会の試合として登録した試合の成績が、チームをまたいで大会のランキングに集計されます。大会に参加する人は、それぞれのチームの試合を作るときに、この大会を選びます。</p>
         <div class="nl-field">
-          <label for="create-number">番号（数字1〜9けた。ほかのチーム・大会と重ならない番号）</label>
+          <label for="create-number">番号</label>
           <input type="text" id="create-number" name="team_number" inputmode="numeric" autocomplete="off" maxlength="9">
-          <p class="nl-note" id="number-hint">1999以上の番号を使ってください（1〜1998はテスト用です）。</p>
+          <p class="nl-note" id="number-hint">番号：1999〜999999899の数字（1〜9けた。先頭に0は付けません）。ほかのチーム・大会が使っている番号は使えません。</p>
         </div>
         <div class="nl-field">
-          <label for="create-name" id="create-name-label">チーム名（30文字まで）</label>
+          <label for="create-name" id="create-name-label">チーム名</label>
           <input type="text" id="create-name" name="team_name" autocomplete="off" maxlength="30">
+          <p class="nl-note" id="name-hint">チーム名：1〜30文字。ほかのチームと同じ名前でも作れます。</p>
         </div>
         <div class="nl-field">
-          <label for="create-pass">合言葉（6〜32文字。ひらがな・カタカナ・英字・数字）</label>
+          <label for="create-pass">合言葉</label>
           <input type="text" id="create-pass" name="passphrase" autocomplete="off" maxlength="32">
-          <p class="nl-note">全角・半角、大文字・小文字、ひらがな・カタカナの違いは同じものとして扱います。漢字・記号・空白は使えません。</p>
+          <p class="nl-note">合言葉：6〜32文字。使えるのは、ひらがな・カタカナ・英字・数字（漢字・記号・空白は使えません）。全角・半角、大文字・小文字、ひらがな・カタカナの違いは同じものとして扱います。</p>
         </div>
         <button type="submit" class="nl-btn nl-btn--block" id="btn-create">チームを作る</button>
       </form>
@@ -82,8 +85,9 @@
         <h2>あなたの表示名</h2>
         <p class="nl-note" style="margin:0 0 12px">ランキングなどで、ほかのメンバーに見える名前です。最初はLINEの名前を使います。</p>
         <div class="nl-field">
-          <label for="display-name">表示名（20文字まで）</label>
+          <label for="display-name">表示名</label>
           <input type="text" id="display-name" name="display_name" autocomplete="off" maxlength="20">
+          <p class="nl-note">表示名：1〜20文字。</p>
         </div>
         <button type="submit" class="nl-btn nl-btn--sub nl-btn--block" id="btn-name">表示名を変える</button>
         <p class="nl-note" id="name-source"></p>

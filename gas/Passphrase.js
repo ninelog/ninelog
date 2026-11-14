@@ -32,7 +32,7 @@ function validatePassphrase_(text) {
   }
   const length = Array.from(normalized).length;
   if (length < CONFIG.PASSPHRASE_MIN || length > CONFIG.PASSPHRASE_MAX) {
-    throw passphraseError_('合言葉は' + CONFIG.PASSPHRASE_MIN + '〜' + CONFIG.PASSPHRASE_MAX + '文字で入力してください');
+    throw passphraseError_('合言葉は' + CONFIG.PASSPHRASE_MIN + '〜' + CONFIG.PASSPHRASE_MAX + '文字にしてください（いま' + length + '文字）');
   }
   return normalized;
 }

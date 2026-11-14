@@ -124,14 +124,14 @@ function testTeamCreation_(results) {
   // 使われている番号
   results.push({
     title: 'チーム番号：使われている番号は作れない',
-    expected: 'team_number：この番号は使われています',
+    expected: 'team_number：' + TEAM_NUMBER_USED_MESSAGE,
     actual: errorSummary_(function () { createTestTeam_(other, '999999901', '別チーム', 'abcdef'); }),
   });
 
   // 画面からは、自動テスト専用の番号を作れない
   results.push({
     title: 'チーム番号：画面からは自動テスト専用の番号（999999950）を作れない',
-    expected: 'team_number：この番号は使えません',
+    expected: 'team_number：' + TEAM_NUMBER_TEST_MESSAGE,
     actual: errorSummary_(function () { viaScreen(other, '999999950', '別チーム', 'abcdef'); }),
   });
 
@@ -147,15 +147,28 @@ function testTeamCreation_(results) {
   });
   results.push({ title: 'チーム番号の形：全角数字「２０２６」は「2026」にそろう', expected: '2026', actual: checkTeamNumberFormat_('２０２６', []) });
 
+  // エラーの文：どの決まりに合わないかが分かる（2026-11-15）
+  const numberMessage = function (v) { const e = []; checkTeamNumberFormat_(v, e); return e.length ? e[0].message : 'OK'; };
+  results.push({ title: 'エラーの文：番号が空なら「番号を入力してください」', expected: '番号を入力してください', actual: numberMessage('') });
+  results.push({ title: 'エラーの文：番号に数字以外・10けた・先頭0なら、形の決まりを出す', expected: [TEAM_NUMBER_FORMAT_MESSAGE, TEAM_NUMBER_FORMAT_MESSAGE, TEAM_NUMBER_FORMAT_MESSAGE].join('/'),
+    actual: [numberMessage('abc'), numberMessage('1234567890'), numberMessage('0123')].join('/') });
+  results.push({ title: 'エラーの文：名前が空・長すぎる・改行入り', expected: 'チーム名を入力してください/表示名は20文字までです（いま21文字）/大会名に、改行などの使えない文字が入っています/OK',
+    actual: [nameProblem_('', 'チーム名', 30), nameProblem_('あ'.repeat(21), '表示名', 20), nameProblem_('A\nB', '大会名', 30), nameProblem_('😀'.repeat(20), '表示名', 20) || 'OK'].join('/') });
+  const passMessage = function (v) { try { validatePassphrase_(v); return 'OK'; } catch (e) { return e.details[0].message; } };
+  results.push({ title: 'エラーの文：合言葉が短い・長いと、いまの文字数も出す', expected: '合言葉は6〜32文字にしてください（いま5文字）/合言葉は6〜32文字にしてください（いま33文字）',
+    actual: [passMessage('abcde'), passMessage('a'.repeat(33))].join('/') });
+  results.push({ title: 'エラーの文：合言葉に漢字・記号・空白があると、使える文字を出す', expected: '合言葉に使えるのは、ひらがな・カタカナ・英字・数字です（漢字・記号・空白は使えません）',
+    actual: passMessage('野球ないん99') });
+
   // 番号の決まり（シートを使わずに確かめる。予約番号や本物の番号には書き込まない）
   [
-    ['5', false, false, 'この番号は使えません', '予約番号（5）は管理者以外は作れない'],
-    ['1998', false, false, 'この番号は使えません', '予約番号の上限（1998）は管理者以外は作れない'],
+    ['5', false, false, TEAM_NUMBER_RESERVED_MESSAGE, '予約番号（5）は管理者以外は作れない'],
+    ['1998', false, false, TEAM_NUMBER_RESERVED_MESSAGE, '予約番号の上限（1998）は管理者以外は作れない'],
     ['1990', true, false, 'null', '管理者は予約番号（1990）を作れる'],
     ['1999', false, false, 'null', '1999 は誰でも作れる'],
     ['999999899', false, false, 'null', '999999899 は誰でも作れる（自動テスト専用の手前）'],
-    ['999999900', true, false, 'この番号は使えません', '管理者でも、自動テスト専用の番号（999999900）は作れない'],
-    ['999999999', false, false, 'この番号は使えません', '自動テスト専用の上限（999999999）は作れない'],
+    ['999999900', true, false, TEAM_NUMBER_TEST_MESSAGE, '管理者でも、自動テスト専用の番号（999999900）は作れない'],
+    ['999999999', false, false, TEAM_NUMBER_TEST_MESSAGE, '自動テスト専用の上限（999999999）は作れない'],
     ['999999900', false, true, 'null', '自動テストは、自動テスト専用の番号を作れる'],
     ['1999', false, true, '自動テストでは', '自動テストは、本物の番号（1999）を作れない'],
     ['5', true, true, '自動テストでは', '自動テストは、予約番号（5）を作れない'],

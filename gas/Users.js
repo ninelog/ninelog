@@ -46,10 +46,10 @@ function ensureUser_(user) {
  */
 function handleUpdateMyName_(data, user) {
   const name = typeof data.display_name === 'string' ? data.display_name.trim() : '';
-  const length = Array.from(name).length; // 絵文字などを1文字として数える
-  if (length < 1 || length > CONFIG.DISPLAY_NAME_MAX || /[\u0000-\u001f\u007f]/.test(name)) {
+  const problem = nameProblem_(name, '表示名', CONFIG.DISPLAY_NAME_MAX); // 絵文字なども1文字として数える
+  if (problem) {
     throw new AppError(APP_ERROR.VALIDATION_ERROR, '入力内容に誤りがあります', [
-      { field: 'display_name', message: '表示名は1〜' + CONFIG.DISPLAY_NAME_MAX + '文字で入力してください' },
+      { field: 'display_name', message: problem },
     ]);
   }
   const record = findUserRecord_(user.userId);

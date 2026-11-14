@@ -20,7 +20,7 @@
         ? '自分で決めた名前です（LINEの名前を変えても、こちらは変わりません）。'
         : 'いまはLINEの名前を使っています。';
       if (me.isAdmin) {
-        $('number-hint').textContent = 'あなたは管理者なので、テスト用の番号（1〜1998）も使えます。本物のチームは1999以上の番号にしてください。';
+        $('number-hint').textContent = '番号：1〜999999899の数字（1〜9けた。先頭に0は付けません）。あなたは管理者なので、1〜1998（テスト用）も使えます。本物のチームは1999以上にしてください。ほかのチーム・大会が使っている番号は使えません。';
       }
       renderTeams(res[1].teams);
     }).catch(function (err) {
@@ -137,7 +137,7 @@
     form.style.width = '100%';
     const field = el('div', 'nl-field');
     const id = 'pass-' + t.teamId;
-    const label = el('label', '', '新しい合言葉（6〜32文字）');
+    const label = el('label', '', '新しい合言葉');
     label.setAttribute('for', id);
     const input = el('input', '');
     input.type = 'text';
@@ -147,6 +147,8 @@
     input.maxLength = 32;
     field.appendChild(label);
     field.appendChild(input);
+    // 入力の決まり（2026-11-15）
+    field.appendChild(el('p', 'nl-note', '合言葉：6〜32文字。使えるのは、ひらがな・カタカナ・英字・数字（漢字・記号・空白は使えません）。全角・半角、大文字・小文字、ひらがな・カタカナの違いは同じものとして扱います。'));
     form.appendChild(field);
     const actions = el('div', 'nl-actions');
     const save = el('button', 'nl-btn', '変える');
@@ -460,7 +462,8 @@
   /** 種類に合わせて、名前の欄・説明・ボタンの文字を変える */
   function updateCreateLabels() {
     const isTournament = createOrgType() === 'tournament';
-    $('create-name-label').textContent = (isTournament ? '大会名' : 'チーム名') + '（30文字まで）';
+    $('create-name-label').textContent = isTournament ? '大会名' : 'チーム名';
+    $('name-hint').textContent = isTournament ? '大会名：1〜30文字。ほかの大会と同じ名前でも作れます。' : 'チーム名：1〜30文字。ほかのチームと同じ名前でも作れます。';
     $('btn-create').textContent = isTournament ? '大会を作る' : 'チームを作る';
     $('tournament-hint').hidden = !isTournament;
   }

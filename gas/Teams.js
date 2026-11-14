@@ -75,7 +75,7 @@ function handleCreateTeam_(data, user, options) {
     if (problem) {
       errors.push({ field: 'team_number', message: problem });
     } else if (findTeamByNumber_(teamNumber)) {
-      errors.push({ field: 'team_number', message: 'この番号は使われています' });
+      errors.push({ field: 'team_number', message: TEAM_NUMBER_USED_MESSAGE });
     }
   }
   throwIfErrors_(errors);
@@ -137,12 +137,25 @@ function checkTeamNumberFormat_(value, errors) {
   const text = (typeof value === 'number' || typeof value === 'string')
     ? String(value).normalize('NFKC').trim()
     : '';
+  if (text === '') {
+    errors.push({ field: 'team_number', message: '番号を入力してください' });
+    return null;
+  }
   if (!/^[1-9][0-9]{0,8}$/.test(text)) {
-    errors.push({ field: 'team_number', message: '番号は1〜999999999の数字で入力してください（先頭に0は付けません）' });
+    errors.push({ field: 'team_number', message: TEAM_NUMBER_FORMAT_MESSAGE });
     return null;
   }
   return text;
 }
+
+/** 番号の形が合わないときの文（数字以外・10けた以上・先頭が0） */
+const TEAM_NUMBER_FORMAT_MESSAGE = '番号は数字だけで、1〜9けたで入力してください（先頭に0は付けません）';
+/** 予約番号（1〜1998）を管理者以外が作ろうとしたときの文 */
+const TEAM_NUMBER_RESERVED_MESSAGE = '1〜' + CONFIG.RESERVED_TEAM_NUMBER_MAX + 'はテスト用の番号なので使えません。' + (CONFIG.RESERVED_TEAM_NUMBER_MAX + 1) + '以上の番号にしてください';
+/** 自動テスト専用の番号（999999900〜）を画面から作ろうとしたときの文 */
+const TEAM_NUMBER_TEST_MESSAGE = CONFIG.TEST_TEAM_NUMBER_MIN + '以上の番号は使えません。' + (CONFIG.RESERVED_TEAM_NUMBER_MAX + 1) + '〜' + (CONFIG.TEST_TEAM_NUMBER_MIN - 1) + 'の番号にしてください';
+/** ほかのチーム・大会が使っている番号のときの文 */
+const TEAM_NUMBER_USED_MESSAGE = 'この番号は、ほかのチーム・大会で使われています。別の番号にしてください';
 
 /**
  * チーム番号の「使ってよいか」の決まり（シートは見ない。CLAUDE.md 第4.8章）
@@ -154,13 +167,13 @@ function checkTeamNumberFormat_(value, errors) {
 function teamNumberRuleProblem_(teamNumber, isAdmin, forAutomatedTest) {
   const n = Number(teamNumber);
   if (isTestTeamNumber_(n)) {
-    return forAutomatedTest ? null : 'この番号は使えません';
+    return forAutomatedTest ? null : TEAM_NUMBER_TEST_MESSAGE;
   }
   if (forAutomatedTest) {
     return '自動テストでは、自動テスト専用の番号（' + CONFIG.TEST_TEAM_NUMBER_MIN + '〜）だけを使います';
   }
   if (n <= CONFIG.RESERVED_TEAM_NUMBER_MAX && !isAdmin) {
-    return 'この番号は使えません';
+    return TEAM_NUMBER_RESERVED_MESSAGE;
   }
   return null;
 }
@@ -174,12 +187,25 @@ function isTestTeamNumber_(teamNumber) {
 /** チーム名・大会名：1〜30文字 */
 function checkTeamName_(value, errors, orgType) {
   const name = typeof value === 'string' ? value.trim() : '';
-  const length = Array.from(name).length;
-  if (length < 1 || length > CONFIG.TEAM_NAME_MAX || /[\u0000-\u001f\u007f]/.test(name)) {
-    errors.push({ field: 'team_name', message: orgLabel_(orgType) + '名は1〜' + CONFIG.TEAM_NAME_MAX + '文字で入力してください' });
+  const problem = nameProblem_(name, orgLabel_(orgType) + '名', CONFIG.TEAM_NAME_MAX);
+  if (problem) {
+    errors.push({ field: 'team_name', message: problem });
     return null;
   }
   return name;
+}
+
+/**
+ * 名前（チーム名・大会名・表示名）の決まり：1〜max文字、改行などの見えない文字は使えない。
+ * 合わなければ、どの決まりに合わないかが分かる文を返す（合っていれば null）。
+ * 文字数は、絵文字なども1文字として数える。
+ */
+function nameProblem_(name, label, max) {
+  const length = Array.from(name).length;
+  if (length === 0) return label + 'を入力してください';
+  if (length > max) return label + 'は' + max + '文字までです（いま' + length + '文字）';
+  if (/[\u0000-\u001f\u007f]/.test(name)) return label + 'に、改行などの使えない文字が入っています';
+  return null;
 }
 
 function findTeamByNumber_(teamNumber) {
