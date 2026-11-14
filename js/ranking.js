@@ -1,5 +1,5 @@
 /**
- * 「ランキング」の画面（ranking.html）。C-7。CLAUDE.md 6.2〜6.4章・11.8章
+ * 「ランキング」の画面（ranking.html）。C-7・C-8。CLAUDE.md 6.2〜6.4章・11.8章
  *
  * - チーム（大会とひとりの記録は出さない）と年度を選び、8部門を切り替えて見る
  * - 順位・規定の判定はGAS（getTeamRanking）が行い、画面は並べて出すだけ（6.3章）
@@ -156,6 +156,13 @@
     if (c.kind === 'rate') {
       const sub = state.category === 'era' ? r.innings_text : r.plate_appearances + '打席';
       who.appendChild(el('span', 'nl-rank__sub', sub));
+      // C-8：規定に届いていない人には、あと少しを出す（GASが作った文：「規定打席まであと3打席」「規定投球回まであと2/3回」）
+      if (!r.qualified && r.remaining_text) {
+        who.appendChild(el('span', 'nl-rank__remain', r.remaining_text));
+      } else if (r.qualified && r.value === null) {
+        // 規定に届いていても、打数が0の人（四球だけなど）は率が出ない（B-13の細部3）
+        who.appendChild(el('span', 'nl-rank__sub', '打数が0なので、率は出ません'));
+      }
     }
     li.appendChild(who);
     li.appendChild(el('span', 'nl-rank__value', r.text));
