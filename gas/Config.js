@@ -22,6 +22,9 @@ const CONFIG = {
 
   // LINEのIDトークン（本人確認の札）を確かめる窓口（CLAUDE.md 第3.1章）
   LINE_VERIFY_URL: 'https://api.line.me/oauth2/v2.1/verify',
+  LINE_REPLY_URL: 'https://api.line.me/v2/bot/message/reply', // 返信（B-23）
+  // 公開中のWebアプリのURL（公開してよい値。画面の js/config.js と同じ）。Webhook の URL を作るときに使う（B-23）
+  WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbwQ95a4VTZtdlzstnY9fliiDLgVeDZ66luyeAkW8m5aqe1WjAgIGJaiWp0TZN-bUhUb/exec',
   // 札を発行した元として正しい値
   LINE_ISSUER: 'https://access.line.me',
 

@@ -12,6 +12,8 @@
  * 札が無い・正しくない要求は、②で必ず断る（どの操作でも同じ）。
  */
 function doPost(e) {
+  // 公式LINEのトークからの知らせ（Webhook。URLに ?hook= が付く）は、別の入口で受ける（B-23。11.11章）
+  if (isWebhookRequest_(e)) return handleWebhook_(e);
   try {
     const request = parseRequest_(e);
     const user = verifyIdToken_(request.idToken);
