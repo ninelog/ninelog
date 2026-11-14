@@ -56,7 +56,16 @@
         <ol class="nl-rank" id="rows"></ol>
         <!-- LINEで共有する（C-7c。11.5章）：利用者本人のLINEから送るので、公式LINEの配信数は使わない -->
         <div class="nl-share" id="share">
+          <!-- 何人まで送るか（2026-11-14 利用者が追加。送る人なら誰でも選べる） -->
+          <div class="nl-seg nl-seg--sm" role="group" aria-label="共有する人数" id="share-count">
+            <button type="button" class="nl-seg__btn" data-count="3" aria-pressed="true">上位3人</button>
+            <button type="button" class="nl-seg__btn" data-count="5" aria-pressed="false">5人</button>
+            <button type="button" class="nl-seg__btn" data-count="10" aria-pressed="false">10人</button>
+            <button type="button" class="nl-seg__btn" data-count="all" aria-pressed="false">全員</button>
+          </div>
           <button type="button" class="nl-btn nl-btn--block" id="btn-share">この部門の上位3人をLINEで共有する</button>
+          <!-- 8部門の上位をまとめて1通で送る（年末の成績発表などに） -->
+          <button type="button" class="nl-btn nl-btn--sub nl-btn--block" id="btn-share-all" style="margin-top:8px">全部門まとめて送る（上位3人）</button>
           <p class="nl-note" id="share-note"></p>
         </div>
       </section>

@@ -9,6 +9,7 @@
  *
  * - C-7b：「チームの成績」に切り替えると、チーム全体の成績（getTeamStats）を出す。11.4章・B-14
  * - C-7c：選んでいる部門の上位3人を、LINEのグループや友だちに共有する（liff.shareTargetPicker）。11.5章
+ *   2026-11-14 追加：人数（上位3人／5人／10人／全員）を選べる。「全部門まとめて送る」で8部門を1通にまとめて送れる
  *
  * 使うGASの操作：listMyTeams・getTeamRanking・getTournamentRanking・getTeamStats
  */
@@ -224,7 +225,8 @@
 
   /* ---------- LINEで共有する（C-7c。11.5章） ---------- */
 
-  const SHARE_TOP = 3; // 共有するのは上位3位まで（同じ順位の人は全員）
+  const SHARE_TEXT_MAX = 5000; // LINEの文字のメッセージの上限（文字数）
+  let shareCount = 3;         // 何人まで送るか（3・5・10・'all'＝全員）。最初は3人
 
   /** 共有できるか（LINEアプリの中で開いていて、シェアターゲットピッカーが使えるとき） */
   function canShare() {
@@ -235,53 +237,110 @@
     }
   }
 
-  /** 共有する上位の人（順位の付いた人だけ。規定に届いていない人は入れない：11.5章） */
+  /**
+   * 共有する人：順位の付いた人だけ（規定に届いていない人と、値の無い人は入れない：11.5章）。
+   * 人数で区切るのは順位で決める（同じ順位の人は、区切りの人数を超えても全員入れる。例：上位3人で3位が2人なら4人）
+   */
   function topRows(c) {
-    return c.rows.filter(function (r) { return r.rank && r.rank <= SHARE_TOP; });
+    return c.rows.filter(function (r) { return r.rank && (shareCount === 'all' || r.rank <= shareCount); });
+  }
+
+  /** 人数の言い方（ボタンと送る文で使う） */
+  function countLabel() { return shareCount === 'all' ? '全員' : '上位' + shareCount + '人'; }
+
+  /** 1つの部門の行（「1位　山田（ナインA）　.500」）。率の部門で「全員」のときは、規定に届いていない人数を添える */
+  function categoryLines(c, key) {
+    const lines = topRows(c).map(function (r) {
+      return r.rank + '位　' + r.displayName + (r.teamName ? '（' + r.teamName + '）' : '') + '　' + r.text;
+    });
+    if (!lines.length) lines.push('（順位の付いた人はいません）');
+    if (shareCount === 'all' && c.kind === 'rate') {
+      const short = c.rows.filter(function (r) { return !r.qualified; }).length;
+      if (short) lines.push('（' + (key === 'era' ? '規定投球回' : '規定打席') + 'に届いていない人：' + short + '人）');
+    }
+    return lines;
+  }
+
+  function seasonText(res) { return res.season === 'all' ? '通算' : res.season + '年'; }
+  function linkLine() { return 'ランキングを見る：https://liff.line.me/' + NINELOG_CONFIG.LIFF_ID + '/ranking.html'; }
+
+  /** この部門だけの文（チーム名・年度・部門・選んだ人数・リンク。11.5章） */
+  function shareText(res, c) {
+    const lines = ['【ナインログ】' + res.orgName + '　' + seasonText(res) + '　' + c.label + 'ランキング' + (shareCount === 3 ? '' : '（' + countLabel() + '）')];
+    return lines.concat(categoryLines(c, state.category), ['', linkLine()]).join('\n');
+  }
+
+  /** 8部門をまとめた文（年末の成績発表などに） */
+  function shareAllText(res) {
+    const lines = ['【ナインログ】' + res.orgName + '　' + seasonText(res) + '　全部門ランキング（' + countLabel() + '）'];
+    CATEGORY_ORDER.forEach(function (key) {
+      const c = res.categories[key];
+      if (!c) return;
+      lines.push('');
+      lines.push('■' + c.label);
+      Array.prototype.push.apply(lines, categoryLines(c, key));
+    });
+    lines.push('');
+    lines.push(linkLine());
+    return lines.join('\n');
   }
 
   /** ボタンを押せるかと、その下の説明を合わせる */
   function renderShare(res, c) {
-    const top = topRows(c);
     const btn = $('btn-share');
+    const allBtn = $('btn-share-all');
     const note = $('share-note');
     NinelogUI.clearAlerts($('share'));
+    $('share-count').querySelectorAll('button').forEach(function (b) {
+      b.setAttribute('aria-pressed', b.getAttribute('data-count') === String(shareCount) ? 'true' : 'false');
+    });
+    btn.textContent = 'この部門の' + countLabel() + 'をLINEで共有する';
+    allBtn.textContent = '全部門まとめて送る（' + countLabel() + '）';
+    const anyRanked = CATEGORY_ORDER.some(function (key) { return res.categories[key] && topRows(res.categories[key]).length; });
     if (!canShare()) {
       btn.disabled = true;
+      allBtn.disabled = true;
       note.textContent = '共有は、LINEアプリの中で開いたときだけ使えます。';
-    } else if (!top.length) {
-      btn.disabled = true;
-      note.textContent = '順位の付いた人がいないので、この部門は共有できません。';
-    } else {
-      btn.disabled = false;
-      note.textContent = '送り先（グループや友だち）を選ぶ画面が開きます。あなたのLINEから送られます。';
+      return;
     }
+    btn.disabled = !topRows(c).length;
+    allBtn.disabled = !anyRanked;
+    if (!anyRanked) note.textContent = '順位の付いた人がいないので、共有できません。';
+    else if (!topRows(c).length) note.textContent = 'この部門は順位の付いた人がいないので共有できません（全部門まとめて送ることはできます）。';
+    else note.textContent = '送り先（グループや友だち）を選ぶ画面が開きます。あなたのLINEから送られます。規定に届いていない人は入りません。';
   }
 
-  /** 送る文（チーム名・年度・部門・上位3人・ランキングを開くリンク。11.5章） */
-  function shareText(res, c) {
-    const lines = ['【ナインログ】' + res.orgName + '　' + (res.season === 'all' ? '通算' : res.season + '年') + '　' + c.label + 'ランキング'];
-    // 大会のランキングは、表示名にチーム名を添える（11.7章のE・L）
-    topRows(c).forEach(function (r) {
-      lines.push(r.rank + '位　' + r.displayName + (r.teamName ? '（' + r.teamName + '）' : '') + '　' + r.text);
-    });
-    lines.push('');
-    lines.push('ランキングを見る：https://liff.line.me/' + NINELOG_CONFIG.LIFF_ID + '/ranking.html');
-    return lines.join('\n');
-  }
-
-  $('btn-share').addEventListener('click', function () {
-    const res = state.shown;
-    const c = res.categories[state.category];
+  /** 文を送る（長すぎるときは送らずに知らせる） */
+  function sendText(text, button) {
     const box = $('share');
     NinelogUI.clearAlerts(box);
-    NinelogUI.withBusy($('btn-share'), function () {
-      return liff.shareTargetPicker([{ type: 'text', text: shareText(res, c) }], { isMultiple: true }).then(function (result) {
+    if (text.length > SHARE_TEXT_MAX) {
+      NinelogUI.showError({ message: '人数が多くて、1通で送れる長さを超えます。人数を減らしてください。' }, box);
+      return;
+    }
+    NinelogUI.withBusy(button, function () {
+      return liff.shareTargetPicker([{ type: 'text', text: text }], { isMultiple: true }).then(function (result) {
         // 送り先を選ばずに閉じたときは、何も出さない
         if (result) NinelogUI.showOk('共有しました。', box);
       }).catch(function () {
         NinelogUI.showError({ message: '共有できませんでした。LINEアプリを最新にして、もう一度ためしてください。' }, box);
       });
+    });
+  }
+
+  $('btn-share').addEventListener('click', function () {
+    const res = state.shown;
+    sendText(shareText(res, res.categories[state.category]), $('btn-share'));
+  });
+  $('btn-share-all').addEventListener('click', function () {
+    sendText(shareAllText(state.shown), $('btn-share-all'));
+  });
+  $('share-count').querySelectorAll('button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      const v = b.getAttribute('data-count');
+      shareCount = v === 'all' ? 'all' : Number(v);
+      const res = state.shown;
+      renderShare(res, res.categories[state.category]);
     });
   });
 
