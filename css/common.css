@@ -395,3 +395,8 @@ body {
 .nl-table th, .nl-table td { padding: 6px 4px; border-bottom: 1px solid var(--line); text-align: right; }
 .nl-table th:first-child, .nl-table td:first-child { text-align: left; }
 .nl-table th { color: var(--sub); font-weight: 400; font-size: 13px; }
+
+/* 相手別・大会別の表（C-6d） */
+.nl-table-wrap { overflow-x: auto; margin-top: 4px; }
+.nl-table--bd th, .nl-table--bd td { padding: 8px 4px; white-space: nowrap; }
+.nl-table--bd td:first-child { white-space: normal; word-break: break-all; min-width: 5em; }

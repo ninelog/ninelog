@@ -6,6 +6,7 @@
  * - 計算はGAS（getMyStats）が行い、画面は出すだけ（6.3章と同じ考え方）
  *
  * C-6c：成績の推移グラフ（月ごとの打率・OPS・防御率。その月だけ／積み上げ。Chart.js）。11.4章・6.5章
+ * C-6d：相手別・大会別・区分別の集計（js/breakdown.js。自分の集計なので勝敗は出さない：B-15の細部4）。11.4章
  * C-6b：記録カレンダー（●自分の成績・○チームの試合。日を押すと、その日の試合と成績、「直す」「入力する」）。11.3章
  *
  * 使うGASの操作：getMyStats・getCalendar・listMyBattingRecords・listMyPitchingRecords
@@ -25,6 +26,7 @@
 
   let loading = 0; // 読み込みの番号（あとから始めた読み込みの結果だけを使う）
   let shown = null; // いま画面に出している成績（GASの返事）
+  const breakdown = NinelogBreakdown.create($('bd-card'), { withRecord: false }); // 相手別・大会別（C-6d）
 
   function start() {
     initCalendar();
@@ -48,6 +50,7 @@
       renderFilters(res);
       render(res);
       renderTrend();
+      breakdown.update(res.breakdowns);
       syncCalendar(res);
     }, function (err) {
       if (my !== loading) return;
