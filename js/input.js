@@ -38,12 +38,28 @@
 
   /* ---------- 読み込み ---------- */
 
+  /** 「2026-11-14」から days 日ずらした日 */
+  function shiftDate(text, days) {
+    const p = text.split('-').map(Number);
+    const d = new Date(Date.UTC(p[0], p[1] - 1, p[2] + days));
+    return d.getUTCFullYear() + '-' + ('0' + (d.getUTCMonth() + 1)).slice(-2) + '-' + ('0' + d.getUTCDate()).slice(-2);
+  }
+
+  let calendar = null; // 試合日を選ぶカレンダー（js/calendar.js）
+
   function start() {
     const today = jstDate(0);
-    $('date').max = today;
-    $('date').min = jstDate(-30); // 試合日から30日以内だけ入力できる（4.5b章）
-    $('date').value = today;
+    state.max = today;
+    state.min = jstDate(-30); // 試合日から30日以内だけ入力できる（4.5b章）
     state.date = today;
+    calendar = NinelogCalendar.create($('date-cal'), {
+      min: state.min,
+      max: state.max,
+      selected: today,
+      onSelect: function (date) { setDate(date); },
+      onMonthChange: function (month) { loadMarks(month); },
+    });
+    updateDateControls();
 
     return NinelogApp.call('listMyTeams').then(function (res) {
       $('loading').hidden = true;
@@ -98,20 +114,30 @@
     });
   }
 
-  /** チームを選んだとき：30日以内の試合（前回の試合日のため）と、選んでいる日の試合を読む */
+  /** チームを選んだとき：カレンダーの○●と、選んでいる日の試合を読む */
   function loadTeam() {
-    $('btn-last').disabled = true;
-    const recent = NinelogApp.call('listTeamGames', { team_id: state.teamId }).then(function (res) {
-      const today = jstDate(0);
-      const before = res.games.map(function (g) { return g.game_date; })
-        .filter(function (d) { return d < today; })
-        .sort();
-      const last = before.length ? before[before.length - 1] : '';
-      $('btn-last').disabled = !last;
-      $('btn-last').dataset.date = last;
-      $('btn-last').textContent = last ? '前回の試合日（' + dateLabel(last) + '）' : '前回の試合日';
+    return Promise.all([loadMarks(calendar.month()), loadDay()]).catch(function (err) { NinelogUI.showError(err, $('pick')); });
+  }
+
+  /**
+   * カレンダーの印を読む（C-4b）：選んでいるチームの試合がある日に○、自分の成績を入れた日に●。
+   * getCalendar は試合の情報と本人の記録のIDだけを返す（他人の成績は返さない。11.3章）
+   */
+  function loadMarks(month) {
+    const teamId = state.teamId;
+    return NinelogApp.call('getCalendar', { month: month, team_id: teamId }).then(function (res) {
+      if (teamId !== state.teamId || month !== calendar.month()) return; // 読んでいる間に切り替わったら使わない
+      const marks = {};
+      res.days.forEach(function (d) { marks[d.date] = { game: d.has_team_game, mine: d.has_my_record }; });
+      calendar.setMarks(marks);
     });
-    return Promise.all([recent, loadDay()]).catch(function (err) { NinelogUI.showError(err, $('pick')); });
+  }
+
+  /** 試合日の表示と「前の日」「次の日」を押せるかを合わせる */
+  function updateDateControls() {
+    $('date-label').textContent = dateLabel(state.date);
+    $('btn-prev-day').disabled = state.date <= state.min;
+    $('btn-next-day').disabled = state.date >= state.max;
   }
 
   /** 選んでいる日の試合を読む */
@@ -268,6 +294,7 @@
         state.selectedGameId = res.game.game_id;
         // 作ったあとは入力欄を閉じるので、成功のお知らせは試合の一覧の四角の一番下に出す
         NinelogUI.showOk('試合を作りました：' + dateLabel(res.game.game_date) + '　' + gameTitle(res.game), $('pick'));
+        loadMarks(calendar.month()).catch(function () { /* 印が読めなくても、試合は作れている */ });
         return loadDay();
       }).catch(function (err) {
         NinelogUI.showError(err, form);
@@ -287,21 +314,17 @@
 
   function setDate(value) {
     if (!value) return;
-    if (value > $('date').max || value < $('date').min) {
-      NinelogUI.showError({ message: '入力できるのは、試合日から30日以内（今日まで）です' }, $('pick'));
-      $('date').value = state.date;
-      return;
-    }
-    $('date').value = value;
+    if (value > state.max || value < state.min) return; // 30日より前と未来には動かない（ボタンも押せない）
     state.date = value;
+    calendar.setSelected(value); // 違う月なら、その月を出して○●を読み直す
+    updateDateControls();
     state.selectedGameId = '';
     NinelogUI.clearAlerts($('pick'));
     loadDay().catch(function (err) { NinelogUI.showError(err, $('pick')); });
   }
-  $('date').addEventListener('change', function () { setDate(this.value); });
+  $('btn-prev-day').addEventListener('click', function () { setDate(shiftDate(state.date, -1)); });
+  $('btn-next-day').addEventListener('click', function () { setDate(shiftDate(state.date, 1)); });
   $('btn-today').addEventListener('click', function () { setDate(jstDate(0)); });
-  $('btn-yesterday').addEventListener('click', function () { setDate(jstDate(-1)); });
-  $('btn-last').addEventListener('click', function () { setDate(this.dataset.date); });
 
   $('btn-new').addEventListener('click', showNewGame);
   $('btn-solo').addEventListener('click', startSolo);

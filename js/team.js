@@ -32,46 +32,99 @@
 
   /* ---------- 所属しているチーム ---------- */
 
+  /**
+   * 所属しているチーム・大会の一覧（C-9d）。
+   * 畳んだときは「所属：チーム2・大会1（タップで開く）」のように数だけを見せ、開くと1つ1行で並べる。
+   * 何も入っていないときは、最初から開いて案内を出す。
+   */
   function renderTeams(teams) {
     const box = $('teams');
     box.innerHTML = '';
     // ひとりの記録場所がまだ無い人にだけ、「ひとりで記録する」を出す（11.8章の1・10）
     $('solo-card').hidden = teams.some(function (t) { return t.orgType === 'solo'; });
+
+    const count = function (type) { return teams.filter(function (t) { return t.orgType === type; }).length; };
+    const parts = ['チーム' + count('team'), '大会' + count('tournament')];
+    if (count('solo')) parts.push('ひとり');
+    const summary = $('teams-summary');
+    summary.innerHTML = '';
+    summary.appendChild(document.createTextNode('所属：' + parts.join('・')));
+    summary.appendChild(el('span', 'nl-fold__hint', '（タップで開く）'));
+
     if (teams.length === 0) {
+      $('teams-fold').open = true;
       box.appendChild(el('p', 'nl-empty', 'まだ、どのチームにも大会にも入っていません。下の「チーム・大会に参加する」か「チーム・大会を作る」から始めてください。'));
       return;
     }
     teams.forEach(function (t) {
-      const card = el('div', 'nl-choice');
-      card.appendChild(el('div', 'nl-choice__title', t.teamName));
-      const badges = el('div', 'nl-badges');
+      const row = el('div', 'nl-row');
+      const main = el('div', 'nl-row__main');
+      main.appendChild(el('span', 'nl-row__name', t.teamName));
       if (t.orgType === 'solo') {
-        // ひとりの記録：番号・役割・合言葉は持たない
-        card.appendChild(el('div', 'nl-choice__sub', 'あなただけの記録場所です（ランキングはありません）'));
-        badges.appendChild(el('span', 'nl-badge', 'ひとり'));
-        card.appendChild(badges);
-        box.appendChild(card);
+        // ひとりの記録：番号・役割・合言葉・退会は無い
+        main.appendChild(el('span', 'nl-badge', 'ひとり'));
+        main.appendChild(el('span', 'nl-row__meta', 'あなただけの記録'));
+        row.appendChild(main);
+        box.appendChild(row);
         return;
       }
-      card.appendChild(el('div', 'nl-choice__sub', '番号 ' + t.teamNumber));
-      if (t.orgType === 'tournament') badges.appendChild(el('span', 'nl-badge', '大会'));
-      badges.appendChild(el('span', 'nl-badge', t.role === 'owner' ? '代表者' : 'メンバー'));
-      card.appendChild(badges);
-      if (t.role === 'owner') card.appendChild(passphraseForm(t, card));
-      box.appendChild(card);
+      if (t.orgType === 'tournament') main.appendChild(el('span', 'nl-badge', '大会'));
+      main.appendChild(el('span', 'nl-badge', t.role === 'owner' ? '代表者' : 'メンバー'));
+      main.appendChild(el('span', 'nl-row__meta', '番号 ' + t.teamNumber));
+      row.appendChild(main);
+      // 代表者は合言葉を変えられる。メンバーは退会できる（代表者は退会できない。B-20）
+      row.appendChild(t.role === 'owner' ? passphraseForm(t, row) : leaveForm(t, row));
+      box.appendChild(row);
     });
+  }
+
+  /** メンバーだけ：退会する（押すと確かめる文が出て、もう一度押すと退会する。C-9d・B-20） */
+  function leaveForm(t, row) {
+    const kind = t.orgType === 'tournament' ? '大会' : 'チーム';
+    const wrap = el('div', 'nl-row__actions');
+    const open = el('button', 'nl-chip nl-chip--danger', '退会する');
+    open.type = 'button';
+    const confirmBox = el('div', '');
+    confirmBox.hidden = true;
+    confirmBox.style.width = '100%';
+    confirmBox.appendChild(el('p', 'nl-note', '「' + t.teamName + '」から退会しますか？ これまでの成績は消えません（' + kind + '全体の成績には残り、ランキングには載らなくなります）。同じ番号と合言葉で、もう一度参加できます。'));
+    const actions = el('div', 'nl-actions');
+    const yes = el('button', 'nl-btn nl-btn--danger', '退会する');
+    yes.type = 'button';
+    const no = el('button', 'nl-btn nl-btn--sub', 'やめる');
+    no.type = 'button';
+    actions.appendChild(yes);
+    actions.appendChild(no);
+    confirmBox.appendChild(actions);
+
+    open.addEventListener('click', function () { confirmBox.hidden = false; open.hidden = true; });
+    no.addEventListener('click', function () { confirmBox.hidden = true; open.hidden = false; NinelogUI.clearAlerts(row); });
+    yes.addEventListener('click', function () {
+      NinelogUI.clearAlerts(row);
+      NinelogUI.withBusy(yes, function () {
+        return NinelogApp.call('leaveTeam', { team_id: t.teamId }).then(function () {
+          // 退会した行は消えるので、お知らせは一覧の四角の一番下に出す
+          return reloadTeams().then(function () {
+            NinelogUI.showOk('「' + t.teamName + '」から退会しました。これまでの成績は残っています。', $('teams-card'));
+          });
+        }).catch(function (err) { NinelogUI.showError(err, row); });
+      });
+    });
+    wrap.appendChild(open);
+    wrap.appendChild(confirmBox);
+    return wrap;
   }
 
   /** 代表者だけ：合言葉を変える（ボタンを押すと入力欄が開く） */
   function passphraseForm(t, card) {
-    const wrap = el('div', '');
+    const wrap = el('div', 'nl-row__actions');
     const open = el('button', 'nl-chip', '合言葉を変える');
     open.type = 'button';
-    open.style.marginTop = '10px';
+
     const form = el('form', '');
     form.noValidate = true;
     form.hidden = true;
-    form.style.marginTop = '10px';
+    form.style.width = '100%';
     const field = el('div', 'nl-field');
     const id = 'pass-' + t.teamId;
     const label = el('label', '', '新しい合言葉（6〜32文字）');
@@ -197,7 +250,7 @@
       return NinelogApp.call('startSolo').then(function () {
         // 記録場所ができると、この四角は消えるので、成功のお知らせは「所属しているチーム」の四角に出す
         return reloadTeams().then(function () {
-          NinelogUI.showOk('「ひとりの記録」を用意しました。「成績を入力」から試合を作って、成績を入れられます。', $('teams').parentNode);
+          NinelogUI.showOk('「ひとりの記録」を用意しました。「成績を入力」から試合を作って、成績を入れられます。', $('teams-card'));
         });
       }).catch(function (err) { NinelogUI.showError(err, card); });
     });

@@ -19,9 +19,12 @@
 
     <div id="content" hidden>
       <!-- 所属しているチーム・大会 -->
-      <section class="nl-card">
-        <h2>所属しているチーム・大会</h2>
-        <div id="teams" class="nl-choices"></div>
+      <!-- 最初は畳んでおき、数だけ見せる。開くと1つ1行（C-9d。2026-11-14 利用者が決定） -->
+      <section class="nl-card" id="teams-card">
+        <details class="nl-fold" id="teams-fold">
+          <summary id="teams-summary">所属しているチーム・大会</summary>
+          <div id="teams" class="nl-rows"></div>
+        </details>
       </section>
 
       <!-- チーム・大会に参加する -->

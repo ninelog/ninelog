@@ -100,6 +100,31 @@ function handleChangePassphrase_(data, user) {
   return { team: toTeamSummary_(team, 'owner') };
 }
 
+/**
+ * 操作：leaveTeam（チーム・大会から退会する。B-20。2026-11-14 利用者が追加）
+ * data: { team_id: 'チームまたは大会のID' }
+ * - 退会しても、成績（打撃・投手）と試合は消さない。チーム全体の成績には残り、ランキングには載らなくなる。
+ * - 代表者は退会できない（代表を譲る機能は初版では作らない）。ひとりの記録は退会できない。
+ * - memberships の行を消すので、同じ番号と合言葉で、もう一度参加できる。
+ * - 所属していないチーム・存在しないIDは、どれも同じ返事（FORBIDDEN）。
+ */
+function handleLeaveTeam_(data, user) {
+  const teamId = typeof data.team_id === 'string' ? data.team_id : '';
+  const membership = teamId ? findMembership_(user.userId, teamId) : null;
+  const team = membership ? findRecord_(CONFIG.SHEET.TEAMS, function (t) { return t.team_id === teamId; }) : null;
+  if (!membership || !team) {
+    throw new AppError(APP_ERROR.FORBIDDEN, '所属していないチーム・大会からは退会できません');
+  }
+  if (orgTypeOf_(team) === ORG_TYPE.SOLO) {
+    throw new AppError(APP_ERROR.FORBIDDEN, 'ひとりの記録は退会できません');
+  }
+  if (membership.role === 'owner') {
+    throw new AppError(APP_ERROR.FORBIDDEN, '代表者は退会できません');
+  }
+  deleteRows_(CONFIG.SHEET.MEMBERSHIPS, [membership._row]);
+  return { left: true, team: toTeamSummary_(team, 'member') };
+}
+
 /* ---------- 間違えた回数（join_attempts シート） ---------- */
 
 /**

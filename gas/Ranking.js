@@ -121,11 +121,17 @@ function handleGetTeamRanking_(data, user, options) {
   const qualifyPa = gameCount * CONFIG.QUALIFY_PA_PER_GAME;
   const qualifyOuts = gameCount * CONFIG.QUALIFY_IP_PER_GAME * 3;
 
+  // 載せるのは、今そのチームに所属している人だけ（退会した人の成績は、チーム全体の成績には残るが、ランキングには載せない。B-20）
+  const members = {};
+  readRecords_(CONFIG.SHEET.MEMBERSHIPS).forEach(function (m) {
+    if (m.team_id === team.teamId) members[m.user_id] = true;
+  });
+
   // 選手ごとに記録を集める
   const byUser = {};
   const collect = function (sheet, kind) {
     readRecords_(sheet).forEach(function (r) {
-      if (r.deleted_at || !gamesInSeason[r.game_id]) return;
+      if (r.deleted_at || !gamesInSeason[r.game_id] || !members[r.user_id]) return;
       if (!byUser[r.user_id]) byUser[r.user_id] = { batting: [], pitching: [] };
       byUser[r.user_id][kind].push(r);
     });

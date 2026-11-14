@@ -36,6 +36,7 @@ function testAllNames_() {
     'testCalendar',        // B-17 カレンダー用の情報
     'testPermissions',     // B-18 権限チェックのまとめ
     'testSolo',            // B-19 ひとりの記録
+    'testLeave',           // B-20 退会
   ];
 }
 

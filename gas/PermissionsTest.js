@@ -29,7 +29,7 @@ function testPermissions() {
  */
 function permissionCheckedActions_() {
   return [
-    'whoami', 'updateMyName', 'createTeam', 'listMyTeams', 'joinTeam', 'changePassphrase', 'startSolo',
+    'whoami', 'updateMyName', 'createTeam', 'listMyTeams', 'joinTeam', 'changePassphrase', 'startSolo', 'leaveTeam',
     'addBattingRecord', 'listMyBattingRecords', 'updateBattingRecord', 'deleteBattingRecord',
     'addPitchingRecord', 'listMyPitchingRecords', 'updatePitchingRecord', 'deletePitchingRecord',
     'getMyStats', 'getTeamRanking', 'getTournamentRanking', 'getTeamStats', 'getCalendar',
@@ -155,6 +155,13 @@ function testPermissionsScenario_(results) {
   expectRefused('ひとりの記録：他人の記録場所のカレンダーは見られない', 'FORBIDDEN', act('getCalendar', { team_id: soloA.teamId }, m));
   expectRefused('ひとりの記録：管理者でも、他人の記録場所に試合を作れない', 'FORBIDDEN', act('createGame', { team_id: soloA.teamId, game_date: '2026-11-03' }, m, true));
   expectRefused('ひとりの記録：自分の記録場所でも、ランキングには使えない', 'FORBIDDEN', act('getTeamRanking', { team_id: soloM.teamId }, m));
+
+  // ---------- 退会（B-20） ----------
+  expectRefused('退会：所属していないチームからは退会できない', 'FORBIDDEN', act('leaveTeam', { team_id: teamY.team_id }, m));
+  expectRefused('退会：参加していない大会からは退会できない', 'FORBIDDEN', act('leaveTeam', { team_id: tourY.team_id }, m));
+  expectRefused('退会：他人のひとりの記録には触れられない', 'FORBIDDEN', act('leaveTeam', { team_id: soloA.teamId }, m));
+  expectRefused('退会：代表者は退会できない', 'FORBIDDEN', act('leaveTeam', { team_id: teamX.team_id }, a));
+  expectRefused('退会：管理者でも、所属していないチームからは退会できない', 'FORBIDDEN', act('leaveTeam', { team_id: teamY.team_id }, m, true));
 
   // ---------- 返事に他人のLINEユーザーIDが入っていない ----------
   const reads = {

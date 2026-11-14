@@ -34,12 +34,13 @@
         <select id="team"></select>
       </div>
       <div class="nl-field">
-        <label for="date">試合日</label>
-        <input type="date" id="date">
-        <div class="nl-chips">
-          <button type="button" class="nl-chip" id="btn-today">今日</button>
-          <button type="button" class="nl-chip" id="btn-yesterday">昨日</button>
-          <button type="button" class="nl-chip" id="btn-last" disabled>前回の試合日</button>
+        <!-- 試合日：画面の中のカレンダー（○チームの試合・●自分の成績）と、1日ずつ動かすボタン（C-4b。2026-11-14 利用者が決定） -->
+        <label>試合日：<strong id="date-label"></strong></label>
+        <div id="date-cal"></div>
+        <div class="nl-daynav">
+          <button type="button" class="nl-chip" id="btn-prev-day">‹ 前の日</button>
+          <button type="button" class="nl-chip" id="btn-next-day">次の日 ›</button>
+          <button type="button" class="nl-chip nl-daynav__today" id="btn-today">今日</button>
         </div>
         <p class="nl-note">入力できるのは、試合日から30日以内です。</p>
       </div>
@@ -112,6 +113,7 @@
   <script src="js/config.js"></script>
   <script src="js/liff-app.js"></script>
   <script src="js/ui.js"></script>
+  <script src="js/calendar.js"></script>
   <script src="js/input.js"></script>
 </body>
 </html>
