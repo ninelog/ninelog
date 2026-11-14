@@ -5,6 +5,7 @@
  * C-4：選んだ試合に、打撃成績を入れる（入力済みなら直す）。第4.4章・4.5章
  * C-5：選んだ試合に、投手成績を入れる（回・アウト数0〜2・自責点）。第4.4b章
  * C-6b：「自分の成績」の記録カレンダーから、日付と試合を選んだ状態で開ける（URLの team・date・game・tab）
+ * C-12：成績を保存・直したときに、新しく達成した記録のお祝いを出す（GASの celebrations。11.4章・B-16）
  *
  * 使うGASの操作：listMyTeams・startSolo・listTeamGames・createGame・updateGame・deleteGame・getCalendar・
  *               listMyBattingRecords・addBattingRecord・updateBattingRecord・
@@ -581,6 +582,7 @@
     const k = RECORD_KINDS[kind];
     const rec = state.mine[kind][g.game_id];
     NinelogUI.clearAlerts($(k.form));
+    hideCelebration(kind); // ほかの試合を選んだら、前のお祝いは消す
     $(k.save).disabled = false;
     k.items.forEach(function (item) {
       $(k.prefix + item[0]).value = String(rec ? Number(rec[item[0]]) || 0 : 0);
@@ -612,6 +614,7 @@
     const form = $(k.form);
     if (!g || !state.mine) return;
     NinelogUI.clearAlerts(form);
+    hideCelebration(kind);
     const rec = state.mine[kind][g.game_id];
     const data = { game_id: g.game_id };
     k.items.forEach(function (item) { data[item[0]] = $(k.prefix + item[0]).value.trim(); });
@@ -622,11 +625,47 @@
         fillKind(kind, g);
         // カレンダーの●を付け直す（印が読めなくても、保存はできている）
         loadMarks(calendar.month()).catch(function () { /* そのまま */ });
-        // お祝い（res.celebrations）の表示は C-12 で作る
         NinelogUI.showOk(res.unchanged ? '変わったところはありませんでした。'
           : k.label + '成績を' + (rec ? '直しました。' : '保存しました。'), form);
+        showCelebration(kind, res.celebrations || []); // 新しく達成した記録があるときだけ（C-12）
       }).catch(function (err) { NinelogUI.showError(err, form); });
     });
+  }
+
+  /* ---------- 記録達成のお祝い（C-12。11.4章・B-16） ---------- */
+
+  /** お祝いの種類ごとの印（1試合の記録・初めての記録・通算の節目） */
+  const CELEBRATION_ICONS = { game: '⚾', first: '✨', milestone: '🏆' };
+
+  /**
+   * 保存・直したあとに、新しく達成した記録を出す（GASが決めた文 message をそのまま出す）。
+   * 何も達成していなければ出さない。保存のお知らせ（緑）のすぐ下に出す。
+   */
+  function showCelebration(kind, list) {
+    const box = $('celebrate-' + kind);
+    box.innerHTML = '';
+    if (!list.length) { box.hidden = true; return; }
+    box.appendChild(el('p', 'nl-celebrate__title', '🎉 おめでとうございます！'));
+    const ul = el('ul', 'nl-celebrate__list');
+    list.forEach(function (c) {
+      const li = el('li', '');
+      li.appendChild(el('span', 'nl-celebrate__icon', CELEBRATION_ICONS[c.type] || '🎉'));
+      li.appendChild(el('span', '', c.message));
+      ul.appendChild(li);
+    });
+    box.appendChild(ul);
+    // 保存のお知らせ（緑）のすぐ下になるように、四角の一番下に置き直す
+    $(RECORD_KINDS[kind].form).appendChild(box);
+    box.hidden = false;
+    // 出すたびに、少し動かして目に入るようにする（同じ要素でも動くように、いったん外す）
+    box.classList.remove('is-pop');
+    void box.offsetWidth;
+    box.classList.add('is-pop');
+  }
+
+  function hideCelebration(kind) {
+    const box = $('celebrate-' + kind);
+    if (box) { box.hidden = true; box.innerHTML = ''; }
   }
 
   /* ---------- 新しい試合を作る ---------- */
