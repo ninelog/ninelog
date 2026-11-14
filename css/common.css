@@ -422,3 +422,7 @@ body {
 
 /* チーム全体の成績（C-7b） */
 #view { margin-bottom: 12px; background: var(--card); }
+
+/* ランキングの共有（C-7c） */
+.nl-share { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.nl-share .nl-note { margin-bottom: 0; }

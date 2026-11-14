@@ -6,6 +6,7 @@
  * - 8部門はまとめて1回で届くので、部門の切り替えではGASに聞き直さない（B-13の細部1）
  *
  * - C-7b：「チームの成績」に切り替えると、チーム全体の成績（getTeamStats）を出す。11.4章・B-14
+ * - C-7c：選んでいる部門の上位3人を、LINEのグループや友だちに共有する（liff.shareTargetPicker）。11.5章
  *
  * 使うGASの操作：listMyTeams・getTeamRanking・getTeamStats
  */
@@ -126,6 +127,7 @@
     const c = res.categories[state.category];
     const list = $('rows');
     list.innerHTML = '';
+    renderShare(res, c);
     $('cat-note').textContent = catNote(c, res);
 
     if (!c.rows.length) {
@@ -172,6 +174,66 @@
     li.appendChild(el('span', 'nl-rank__value', r.text));
     return li;
   }
+
+  /* ---------- LINEで共有する（C-7c。11.5章） ---------- */
+
+  const SHARE_TOP = 3; // 共有するのは上位3位まで（同じ順位の人は全員）
+
+  /** 共有できるか（LINEアプリの中で開いていて、シェアターゲットピッカーが使えるとき） */
+  function canShare() {
+    try {
+      return liff.isInClient() && liff.isApiAvailable('shareTargetPicker');
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /** 共有する上位の人（順位の付いた人だけ。規定に届いていない人は入れない：11.5章） */
+  function topRows(c) {
+    return c.rows.filter(function (r) { return r.rank && r.rank <= SHARE_TOP; });
+  }
+
+  /** ボタンを押せるかと、その下の説明を合わせる */
+  function renderShare(res, c) {
+    const top = topRows(c);
+    const btn = $('btn-share');
+    const note = $('share-note');
+    NinelogUI.clearAlerts($('share'));
+    if (!canShare()) {
+      btn.disabled = true;
+      note.textContent = '共有は、LINEアプリの中で開いたときだけ使えます。';
+    } else if (!top.length) {
+      btn.disabled = true;
+      note.textContent = '順位の付いた人がいないので、この部門は共有できません。';
+    } else {
+      btn.disabled = false;
+      note.textContent = '送り先（グループや友だち）を選ぶ画面が開きます。あなたのLINEから送られます。';
+    }
+  }
+
+  /** 送る文（チーム名・年度・部門・上位3人・ランキングを開くリンク。11.5章） */
+  function shareText(res, c) {
+    const lines = ['【ナインログ】' + res.teamName + '　' + (res.season === 'all' ? '通算' : res.season + '年') + '　' + c.label + 'ランキング'];
+    topRows(c).forEach(function (r) { lines.push(r.rank + '位　' + r.displayName + '　' + r.text); });
+    lines.push('');
+    lines.push('ランキングを見る：https://liff.line.me/' + NINELOG_CONFIG.LIFF_ID + '/ranking.html');
+    return lines.join('\n');
+  }
+
+  $('btn-share').addEventListener('click', function () {
+    const res = state.shown;
+    const c = res.categories[state.category];
+    const box = $('share');
+    NinelogUI.clearAlerts(box);
+    NinelogUI.withBusy($('btn-share'), function () {
+      return liff.shareTargetPicker([{ type: 'text', text: shareText(res, c) }], { isMultiple: true }).then(function (result) {
+        // 送り先を選ばずに閉じたときは、何も出さない
+        if (result) NinelogUI.showOk('共有しました。', box);
+      }).catch(function () {
+        NinelogUI.showError({ message: '共有できませんでした。LINEアプリを最新にして、もう一度ためしてください。' }, box);
+      });
+    });
+  });
 
   /* ---------- チーム全体の成績（C-7b。11.4章・B-14） ---------- */
 

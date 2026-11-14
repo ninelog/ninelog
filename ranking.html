@@ -10,7 +10,8 @@
     - C-7：チームと年度を選び、8部門を切り替えて、チーム内ランキングを見る
     - C-8：規定未達の人に「あと○打席」「あと○回」を出す
     - C-7b：チーム全体の成績（勝敗・勝率・チーム打率・防御率・相手別などの集計）
-    - C-7c：共有ボタン、C-7d：大会のランキング（このあと作る）
+    - C-7c：ランキングをLINEのグループや友だちに共有する（シェアターゲットピッカー）
+    - C-7d：大会のランキング（このあと作る）
   -->
 </head>
 <body>
@@ -53,6 +54,11 @@
         <div class="nl-cats" id="cats" role="group" aria-label="部門"></div>
         <p class="nl-note" id="cat-note"></p>
         <ol class="nl-rank" id="rows"></ol>
+        <!-- LINEで共有する（C-7c。11.5章）：利用者本人のLINEから送るので、公式LINEの配信数は使わない -->
+        <div class="nl-share" id="share">
+          <button type="button" class="nl-btn nl-btn--block" id="btn-share">この部門の上位3人をLINEで共有する</button>
+          <p class="nl-note" id="share-note"></p>
+        </div>
       </section>
 
       <!-- チーム全体の成績（C-7b。11.4章・B-14） -->
