@@ -11,7 +11,7 @@
     - C-8：規定未達の人に「あと○打席」「あと○回」を出す
     - C-7b：チーム全体の成績（勝敗・勝率・チーム打率・防御率・相手別などの集計）
     - C-7c：ランキングをLINEのグループや友だちに共有する（シェアターゲットピッカー）
-    - C-7d：大会のランキング（このあと作る）
+    - C-7d：大会のランキング（チームと大会を1つの選択欄で切り替え、表示名にチーム名を添える）
   -->
 </head>
 <body>
@@ -23,7 +23,7 @@
     <!-- チームに入っていないとき（ひとりの記録だけの人も。11.8章の7） -->
     <section class="nl-card" id="no-team" hidden>
       <h2>ランキングは、チームに参加すると見られます</h2>
-      <p class="nl-note">代表者から「番号」と「合言葉」を教えてもらい、「チーム・設定」の画面で参加してください。ひとりの記録には、ランキングはありません。</p>
+      <p class="nl-note">代表者から「番号」と「合言葉」を教えてもらい、「チーム・設定」の画面で参加してください（大会の番号と合言葉でも参加できます）。ひとりの記録には、ランキングはありません。</p>
       <p><a class="nl-btn nl-btn--block" href="team.html">チーム・設定へ</a></p>
     </section>
 
@@ -32,7 +32,7 @@
       <section class="nl-card" id="filters">
         <div class="nl-pair">
           <div class="nl-field">
-            <label for="team">チーム</label>
+            <label for="team">チーム・大会</label>
             <select id="team"></select>
           </div>
           <div class="nl-field">

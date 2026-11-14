@@ -1,39 +1,52 @@
 /**
- * 「ランキング」の画面（ranking.html）。C-7・C-8。CLAUDE.md 6.2〜6.4章・11.8章
+ * 「ランキング」の画面（ranking.html）。C-7・C-8・C-7b・C-7c・C-7d。CLAUDE.md 6.2〜6.4章・11.7章・11.8章
  *
- * - チーム（大会とひとりの記録は出さない）と年度を選び、8部門を切り替えて見る
- * - 順位・規定の判定はGAS（getTeamRanking）が行い、画面は並べて出すだけ（6.3章）
+ * - チームか大会（ひとりの記録は出さない）と年度を選び、8部門を切り替えて見る
+ * - 順位・規定の判定はGAS（getTeamRanking・getTournamentRanking）が行い、画面は並べて出すだけ（6.3章）
+ * - C-7d：チームと大会を1つの選択欄に並べる（「チーム：〇〇」「大会：〇〇」。11.7章のH）。
+ *   大会のランキングでは、表示名の横にチーム名を出す（11.7章のE）。チームの成績（C-7b）は大会には無い（11.7章のI）
  * - 8部門はまとめて1回で届くので、部門の切り替えではGASに聞き直さない（B-13の細部1）
  *
  * - C-7b：「チームの成績」に切り替えると、チーム全体の成績（getTeamStats）を出す。11.4章・B-14
  * - C-7c：選んでいる部門の上位3人を、LINEのグループや友だちに共有する（liff.shareTargetPicker）。11.5章
  *
- * 使うGASの操作：listMyTeams・getTeamRanking・getTeamStats
+ * 使うGASの操作：listMyTeams・getTeamRanking・getTournamentRanking・getTeamStats
  */
 (function () {
   const $ = function (id) { return document.getElementById(id); };
   const el = NinelogUI.el;
-  const TEAM_KEY = 'ninelog_ranking_team'; // 前に見たチーム（この端末だけに覚える。なくても動く）
+  const TEAM_KEY = 'ninelog_ranking_team'; // 前に見たチーム・大会（「team:ID」「tour:ID」。この端末だけに覚える。なくても動く）
 
   /** 部門の並び（6.4章の表の順。GASの部門の名前と同じ） */
   const CATEGORY_ORDER = ['avg', 'obp', 'ops', 'era', 'hits', 'home_runs', 'rbis', 'stolen_bases'];
 
-  const state = { category: 'avg', shown: null, loading: 0, view: 'ranking', stats: {}, statsLoading: 0 };
+  const state = { category: 'avg', shown: null, loading: 0, view: 'ranking', stats: {}, statsLoading: 0, orgs: [] };
+
+  /** 選択欄の値（「team:ID」「tour:ID」）を、GASに送る形にする */
+  function keyToData(key) {
+    if (key.indexOf('tour:') === 0) return { tournament_id: key.slice(5) };
+    return { team_id: key.indexOf('team:') === 0 ? key.slice(5) : key }; // 前の形（IDだけ）はチームとして読む
+  }
   const teamBreakdown = NinelogBreakdown.create($('ts-bd-card'), { withRecord: true }); // 相手別など（C-7b）
 
   function start() {
     return NinelogApp.call('listMyTeams').then(function (res) {
-      // ランキングがあるのはチームだけ（大会は C-7d、ひとりの記録には無い：11.8章の7）
-      const teams = res.teams.filter(function (t) { return t.orgType === 'team'; });
-      if (!teams.length) {
+      // ランキングがあるのはチームと大会（ひとりの記録には無い：11.8章の7）。チームを先、大会をあとに並べる
+      const pick = function (type, prefix) {
+        return res.teams.filter(function (t) { return t.orgType === type; })
+          .map(function (t) { return { key: prefix + t.teamId, kind: prefix === 'tour:' ? 'tour' : 'team', name: t.teamName }; });
+      };
+      state.orgs = pick('team', 'team:').concat(pick('tournament', 'tour:'));
+      if (!state.orgs.length) {
         $('loading').hidden = true;
         $('no-team').hidden = false;
         return null;
       }
       let saved = '';
       try { saved = localStorage.getItem(TEAM_KEY) || ''; } catch (e) { /* 覚えられなくても動く */ }
-      const teamId = teams.some(function (t) { return t.teamId === saved; }) ? saved : teams[0].teamId;
-      return load({ team_id: teamId }).then(function () {
+      if (saved && saved.indexOf(':') === -1) saved = 'team:' + saved; // 前の形（IDだけ）
+      const key = state.orgs.some(function (o) { return o.key === saved; }) ? saved : state.orgs[0].key;
+      return load(keyToData(key)).then(function () {
         $('loading').hidden = true;
         $('content').hidden = false;
       });
@@ -46,16 +59,21 @@
   /** GASにランキングを聞く（あとから始めた読み込みの結果だけを使う） */
   function load(data) {
     const my = ++state.loading;
+    const isTour = Boolean(data.tournament_id);
     $('content').classList.add('is-loading');
-    return NinelogApp.call('getTeamRanking', data).then(function (res) {
+    return NinelogApp.call(isTour ? 'getTournamentRanking' : 'getTeamRanking', data).then(function (res) {
       if (my !== state.loading) return;
       $('content').classList.remove('is-loading');
+      // チームと大会の返事を、画面で同じように扱えるようにそろえる
+      res.kind = isTour ? 'tour' : 'team';
+      res.orgName = isTour ? res.tournamentName : res.teamName;
+      res.key = (isTour ? 'tour:' : 'team:') + (isTour ? res.tournamentId : res.teamId);
       state.shown = res;
-      try { localStorage.setItem(TEAM_KEY, res.teamId); } catch (e) { /* 覚えられなくても動く */ }
+      try { localStorage.setItem(TEAM_KEY, res.key); } catch (e) { /* 覚えられなくても動く */ }
       renderFilters(res);
       renderCats();
       renderRows();
-      if (state.view === 'team') loadTeamStats();
+      syncView(res);
     }, function (err) {
       if (my !== state.loading) return;
       $('content').classList.remove('is-loading');
@@ -81,10 +99,18 @@
   }
 
   function renderFilters(res) {
+    // チームと大会を1つの選択欄に（11.7章のH）
     const team = $('team');
     team.innerHTML = '';
-    res.teams.forEach(function (t) { team.appendChild(option(t.teamId, t.teamName)); });
-    team.value = res.teamId;
+    [['team', 'チーム'], ['tour', '大会']].forEach(function (g) {
+      const list = state.orgs.filter(function (o) { return o.kind === g[0]; });
+      if (!list.length) return;
+      const group = el('optgroup');
+      group.label = g[1];
+      list.forEach(function (o) { group.appendChild(option(o.key, g[1] + '：' + o.name)); });
+      team.appendChild(group);
+    });
+    team.value = res.key;
 
     const season = $('season');
     season.innerHTML = '';
@@ -95,9 +121,23 @@
     }
     season.value = res.season;
 
-    // 規定の基準（6.2〜6.3章）
-    $('qualify-note').textContent = 'チーム試合数 ' + res.teamGames + '試合　規定打席 ' + res.qualifyPlateAppearances +
-      '打席　規定投球回 ' + res.qualifyInningsText;
+    // 規定の基準（6.2〜6.3章。大会は選手ごとに、そのチームの大会での試合数で決まる：11.7章のF）
+    if (res.kind === 'tour') {
+      const per = (res.teamGames || []).map(function (t) { return t.teamName + ' ' + t.games + '試合'; }).join('・');
+      $('qualify-note').textContent = '大会の試合数 ' + res.tournamentGames + '試合' + (per ? '（' + per + '）' : '') +
+        '。規定は選手ごとに、そのチームの大会での試合数で決まります（×2打席・×1回）。';
+    } else {
+      $('qualify-note').textContent = 'チーム試合数 ' + res.teamGames + '試合　規定打席 ' + res.qualifyPlateAppearances +
+        '打席　規定投球回 ' + res.qualifyInningsText;
+    }
+  }
+
+  /** 大会では「チームの成績」の切り替えを隠して、ランキングだけにする（11.7章のI） */
+  function syncView(res) {
+    const isTour = res.kind === 'tour';
+    $('view').hidden = isTour;
+    if (isTour && state.view === 'team') setView('ranking');
+    else if (state.view === 'team') loadTeamStats();
   }
 
   /* ---------- 部門の切り替え ---------- */
@@ -148,6 +188,11 @@
   /** 部門の説明（並び方と、率の部門の規定） */
   function catNote(c, res) {
     if (c.kind === 'count') return '多い順。打撃の記録がある全員に順位を付けます（同じ数は同じ順位）。';
+    if (res.kind === 'tour') {
+      return state.category === 'era'
+        ? '低い順。規定投球回（その選手のチームの大会での試合数×1回）に届いた人に順位を付けます。'
+        : '高い順。規定打席（その選手のチームの大会での試合数×2打席）に届いた人に順位を付けます。';
+    }
     if (state.category === 'era') return '低い順。規定投球回（' + res.qualifyInningsText + '）に届いた人に順位を付けます。';
     return '高い順。規定打席（' + res.qualifyPlateAppearances + '打席）に届いた人に順位を付けます。';
   }
@@ -157,6 +202,8 @@
     li.appendChild(el('span', 'nl-rank__no', r.rank ? r.rank + '位' : '-'));
     const who = el('span', 'nl-rank__who');
     who.appendChild(el('span', 'nl-rank__name', r.displayName));
+    // 大会のランキングでは、表示名の横にチーム名を出す（11.7章のE）
+    if (r.teamName) who.appendChild(el('span', 'nl-rank__team', '（' + r.teamName + '）'));
     if (r.is_me) who.appendChild(el('span', 'nl-badge', 'あなた'));
     // 率の部門は、打席数・投球回も小さく出す（規定との比べ方がわかるように）
     if (c.kind === 'rate') {
@@ -213,8 +260,11 @@
 
   /** 送る文（チーム名・年度・部門・上位3人・ランキングを開くリンク。11.5章） */
   function shareText(res, c) {
-    const lines = ['【ナインログ】' + res.teamName + '　' + (res.season === 'all' ? '通算' : res.season + '年') + '　' + c.label + 'ランキング'];
-    topRows(c).forEach(function (r) { lines.push(r.rank + '位　' + r.displayName + '　' + r.text); });
+    const lines = ['【ナインログ】' + res.orgName + '　' + (res.season === 'all' ? '通算' : res.season + '年') + '　' + c.label + 'ランキング'];
+    // 大会のランキングは、表示名にチーム名を添える（11.7章のE・L）
+    topRows(c).forEach(function (r) {
+      lines.push(r.rank + '位　' + r.displayName + (r.teamName ? '（' + r.teamName + '）' : '') + '　' + r.text);
+    });
     lines.push('');
     lines.push('ランキングを見る：https://liff.line.me/' + NINELOG_CONFIG.LIFF_ID + '/ranking.html');
     return lines.join('\n');
@@ -262,7 +312,7 @@
    */
   function loadTeamStats() {
     const res = state.shown;
-    if (!res) return;
+    if (!res || res.kind !== 'team') return;
     const key = res.teamId + '|' + res.season;
     if (state.stats[key]) { renderTeamStats(state.stats[key]); return; }
     const my = ++state.statsLoading;
@@ -342,8 +392,10 @@
     b.addEventListener('click', function () { setView(b.getAttribute('data-view')); });
   });
 
-  $('team').addEventListener('change', function () { reload({ team_id: this.value }); });
-  $('season').addEventListener('change', function () { reload({ team_id: $('team').value, season: this.value }); });
+  $('team').addEventListener('change', function () { reload(keyToData(this.value)); });
+  $('season').addEventListener('change', function () {
+    reload(Object.assign(keyToData($('team').value), { season: this.value }));
+  });
 
   NinelogUI.boot('ranking', 'ランキング', start);
 })();
