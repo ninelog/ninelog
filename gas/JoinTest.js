@@ -48,13 +48,13 @@ function runJoinTests_(results) {
   results.push({ title: '合言葉が違うと断られる', expected: 'JOIN_FAILED', actual: wrong.code });
   results.push({ title: '残りの回数が返る（あと9回）', expected: 9, actual: wrong.info && wrong.info.remainingAttempts });
   results.push({ title: '間違いが1回と記録される', expected: 1, actual: testFailCount_(typo.userId) });
-  results.push({ title: '断られた返事に、どちらが違うかは書かない', expected: true, actual: wrong.message.indexOf('番号か合言葉が違います') === 0 });
+  results.push({ title: '断られた返事に、どちらが違うかは書かない', expected: true, actual: wrong.message.indexOf('IDか合言葉が違います') === 0 });
 
   const noTeam = joinTestTeam_(typo, '999999998', 'ないんろぐ99');
-  results.push({ title: '存在しない番号も1回と数える', expected: 'JOIN_FAILED/2', actual: noTeam.code + '/' + testFailCount_(typo.userId) });
+  results.push({ title: '存在しないIDも1回と数える', expected: 'JOIN_FAILED/2', actual: noTeam.code + '/' + testFailCount_(typo.userId) });
 
-  const badFormat = joinTestTeam_(typo, 'abc', 'ないんろぐ99');
-  results.push({ title: '番号の形のまちがいは、入力チェックで断り、回数に数えない', expected: 'VALIDATION_ERROR/2', actual: badFormat.code + '/' + testFailCount_(typo.userId) });
+  const badFormat = joinTestTeam_(typo, 'ab-c', 'ないんろぐ99');
+  results.push({ title: 'IDの形のまちがい（記号入り）は、入力チェックで断り、回数に数えない', expected: 'VALIDATION_ERROR/2', actual: badFormat.code + '/' + testFailCount_(typo.userId) });
   const empty = joinTestTeam_(typo, NUMBER, '');
   results.push({ title: '合言葉が空なら、入力チェックで断り、回数に数えない', expected: 'VALIDATION_ERROR/2', actual: empty.code + '/' + testFailCount_(typo.userId) });
 

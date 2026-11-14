@@ -49,7 +49,7 @@ function handleJoinTeam_(data, user, options) {
     }
     const remaining = CONFIG.JOIN_MAX_FAILS - failCount;
     throw new AppError(APP_ERROR.JOIN_FAILED,
-      '番号か合言葉が違います。あと' + remaining + '回間違えると、' + CONFIG.JOIN_LOCK_MINUTES + '分間入力できなくなります',
+      'IDか合言葉が違います。あと' + remaining + '回間違えると、' + CONFIG.JOIN_LOCK_MINUTES + '分間入力できなくなります',
       null, { remainingAttempts: remaining });
   }
 

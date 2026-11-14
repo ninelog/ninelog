@@ -121,7 +121,7 @@ function handleDeleteTeam_(data, user) {
 
   // チーム・大会の行と、所属の行を消す（番号をまた使えるように）。消したことを記録に残す
   appendRecordChanges_(type, org.team_id, user.userId, 'delete', {
-    team: { oldValue: name + '（番号 ' + org.team_number + '）', newValue: '' },
+    team: { oldValue: name + '（ID ' + org.team_number + '）', newValue: '' },
   }, now);
   deleteRows_(CONFIG.SHEET.MEMBERSHIPS, membershipsOf_(org.team_id).map(function (m) { return m._row; }));
   const row = findRecord_(CONFIG.SHEET.TEAMS, function (x) { return x.team_id === org.team_id; });

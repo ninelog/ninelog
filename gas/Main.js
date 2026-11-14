@@ -200,6 +200,8 @@ function handleWhoami_(data, user) {
     displayName: user.displayName,
     nameSource: user.nameSource,
     isAdmin: user.isAdmin,
+    // 同じチーム・大会に、同じ表示名の人がいるチーム・大会の名前（2026-11-15。「チーム・設定」で知らせる）
+    sameNameTeams: sameNameTeams_(user.userId, user.displayName),
   };
 }
 

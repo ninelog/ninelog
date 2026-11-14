@@ -20,8 +20,9 @@
         ? '自分で決めた名前です（LINEの名前を変えても、こちらは変わりません）。'
         : 'いまはLINEの名前を使っています。';
       if (me.isAdmin) {
-        $('number-hint').textContent = '番号：1〜999999899の数字（1〜9けた。先頭に0は付けません）。あなたは管理者なので、1〜1998（テスト用）も使えます。本物のチームは1999以上にしてください。ほかのチーム・大会が使っている番号は使えません。';
+        $('number-hint').textContent = 'ID：半角の英字・数字で4〜20文字（例：nostradamus、team2026）。大文字・小文字は区別しません。ほかのチーム・大会が使っているIDは使えません。あなたは管理者なので、テスト用のID（1〜1998の数字。4文字より短くてもよい）も使えます。本物のチームには使わないでください。';
       }
+      showSameName(me.sameNameTeams);
       renderTeams(res[1].teams);
     }).catch(function (err) {
       $('loading').hidden = true;
@@ -64,7 +65,7 @@
       const main = el('div', 'nl-row__main');
       main.appendChild(el('span', 'nl-row__name', t.teamName));
       if (t.orgType === 'solo') {
-        // 個人用の記録：番号・役割・合言葉・退会は無い。消せない。成績をチームに移せる（C-9e）
+        // 個人用の記録：ID・役割・合言葉・退会は無い。消せない。成績をチームに移せる（C-9e）
         main.appendChild(el('span', 'nl-badge', '個人用'));
         main.appendChild(el('span', 'nl-row__meta', 'あなただけの記録'));
         row.appendChild(main);
@@ -74,7 +75,7 @@
       }
       if (t.orgType === 'tournament') main.appendChild(el('span', 'nl-badge', '大会'));
       main.appendChild(el('span', 'nl-badge', t.role === 'owner' ? '代表者' : 'メンバー'));
-      main.appendChild(el('span', 'nl-row__meta', '番号 ' + t.teamNumber));
+      main.appendChild(el('span', 'nl-row__meta', 'ID ' + t.teamNumber));
       row.appendChild(main);
       // 代表者は合言葉を変えられて、チーム・大会を消せる（C-9e）。メンバーは退会できる（代表者は退会できない。B-20）
       if (t.role === 'owner') {
@@ -97,7 +98,7 @@
     const confirmBox = el('div', '');
     confirmBox.hidden = true;
     confirmBox.style.width = '100%';
-    confirmBox.appendChild(el('p', 'nl-note', '「' + t.teamName + '」から退会しますか？ これまでの成績は消えません（' + kind + '全体の成績には残り、ランキングには載らなくなります）。同じ番号と合言葉で、もう一度参加できます。'));
+    confirmBox.appendChild(el('p', 'nl-note', '「' + t.teamName + '」から退会しますか？ これまでの成績は消えません（' + kind + '全体の成績には残り、ランキングには載らなくなります）。同じIDと合言葉で、もう一度参加できます。'));
     const actions = el('div', 'nl-actions');
     const yes = el('button', 'nl-btn nl-btn--danger', '退会する');
     yes.type = 'button';
@@ -238,7 +239,7 @@
       }
       li('チームのランキングと、チームの成績はなくなります。');
     }
-    li('番号 ' + pv.teamNumber + ' は、あとでほかの' + kind + 'に使えるようになります。');
+    li('ID ' + pv.teamNumber + ' は、あとでほかの' + kind + 'に使えるようになります。');
     panel.appendChild(ul);
 
     const form = el('form', '');
@@ -463,6 +464,7 @@
   function updateCreateLabels() {
     const isTournament = createOrgType() === 'tournament';
     $('create-name-label').textContent = isTournament ? '大会名' : 'チーム名';
+    $('create-number-label').textContent = isTournament ? '大会ID' : 'チームID';
     $('name-hint').textContent = isTournament ? '大会名：1〜30文字。ほかの大会と同じ名前でも作れます。' : 'チーム名：1〜30文字。ほかのチームと同じ名前でも作れます。';
     $('btn-create').textContent = isTournament ? '大会を作る' : 'チームを作る';
     $('tournament-hint').hidden = !isTournament;
@@ -484,7 +486,7 @@
         passphrase: $('create-pass').value,
       }).then(function (res) {
         const kind = orgType === 'tournament' ? '大会' : 'チーム';
-        NinelogUI.showOk(kind + '「' + res.team.teamName + '」（番号 ' + res.team.teamNumber + '）を作りました。番号と合言葉を' +
+        NinelogUI.showOk(kind + '「' + res.team.teamName + '」（ID ' + res.team.teamNumber + '）を作りました。IDと合言葉を' +
           (orgType === 'tournament' ? '参加する人' : 'メンバー') + 'に伝えてください。', form);
         form.reset();
         updateCreateLabels(); // 種類は「チーム」に戻る
@@ -501,10 +503,24 @@
       return NinelogApp.call('updateMyName', { display_name: $('display-name').value.trim() }).then(function (res) {
         $('display-name').value = res.displayName;
         $('name-source').textContent = '自分で決めた名前です（LINEの名前を変えても、こちらは変わりません）。';
+        showSameName(res.sameNameTeams);
         NinelogUI.showOk('表示名を「' + res.displayName + '」に変えました。', form);
       }).catch(function (err) { NinelogUI.showError(err, form); });
     });
   });
+
+  /**
+   * 同じチーム・大会に、同じ表示名の人がいるときに知らせる（2026-11-15。断らずに知らせるだけ）。
+   * teams：その人がいるチーム・大会の名前の一覧（GASの sameNameTeams）
+   */
+  function showSameName(teams) {
+    const box = $('same-name');
+    const list = teams || [];
+    box.hidden = list.length === 0;
+    box.textContent = list.length
+      ? '同じ表示名の人が「' + list.join('」「') + '」にいます。ランキングで見分けやすいように、表示名を変えることをおすすめします（このままでも使えます）。'
+      : '';
+  }
 
   $('btn-solo').addEventListener('click', function () {
     const card = $('solo-card');

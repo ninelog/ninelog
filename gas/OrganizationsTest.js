@@ -43,7 +43,7 @@ function runOrganizationTests_(results) {
   results.push({ title: '大会名が空なら「大会名を入力してください」と表示する', expected: 'team_name：大会名を入力してください', actual: noName });
   const noTeamName = errorSummary_(function () { createTestTeam_(owner, '999999953', '', 'abcdef'); });
   results.push({ title: 'チーム名が空なら「チーム名を入力してください」と表示する', expected: 'team_name：チーム名を入力してください', actual: noTeamName });
-  results.push({ title: '画面からは、大会でも自動テスト専用の番号は作れない', expected: 'team_number：' + TEAM_NUMBER_TEST_MESSAGE, actual: errorSummary_(function () {
+  results.push({ title: '画面からは、大会でも自動テスト用のIDは作れない（「すでに使われています」とだけ出す）', expected: 'team_number：' + TEAM_NUMBER_USED_MESSAGE, actual: errorSummary_(function () {
     dispatch_({ action: 'createTeam', data: { org_type: 'tournament', team_number: '999999954', team_name: 'x', passphrase: 'abcdef' } }, { userId: 'Utest_oscreen', name: '画面' });
   }) });
 

@@ -98,6 +98,29 @@ function testUserRegistration_(results) {
     dispatch_({ action: 'updateMyName', data: { display_name: 'あ'.repeat(20) } }, { userId: 'Utest_user', name: 'x' });
   });
   results.push({ title: '表示名の決まり：20文字は通る', expected: 'pass', actual: ok20 });
+
+  // 目に見えない文字は取り除いて保存する（2026-11-15）
+  const Z = String.fromCharCode(0x200B);
+  const cleaned = dispatch_({ action: 'updateMyName', data: { display_name: 'た' + Z + 'ろう' } }, { userId: 'Utest_user', name: 'x' });
+  results.push({ title: '表示名の目に見えない文字は取り除いて保存する', expected: 'たろう', actual: cleaned.displayName });
+  const lineZ = dispatch_({ action: 'whoami', data: {} }, { userId: 'Utest_userz', name: 'じ' + Z + 'ろう' });
+  results.push({ title: 'LINEの名前から登録するときも、目に見えない文字を取り除く', expected: 'じろう', actual: lineZ.displayName });
+
+  // 同じチームに、同じ表示名の人がいるときに知らせる（2026-11-15。断らずに知らせるだけ）
+  const p1 = { userId: 'Utest_same1', name: 'やまだ' };
+  const p2 = { userId: 'Utest_same2', name: 'すずき' };
+  createTestTeam_(p1, '999999903', '重なりテスト', 'ないんろぐ99');
+  joinTestTeam_(p2, '999999903', 'ないんろぐ99');
+  callAsTest_(handleStartSolo_, {}, p1, {});
+  const before = dispatch_({ action: 'whoami', data: {} }, p1);
+  results.push({ title: '表示名が違えば、知らせない', expected: '', actual: before.sameNameTeams.join(',') });
+  const first = dispatch_({ action: 'updateMyName', data: { display_name: 'ＹＡＭＡＤＡ' } }, p2);
+  results.push({ title: '表示名を変えても、まだ重なっていなければ知らせない', expected: 'ＹＡＭＡＤＡ/', actual: first.displayName + '/' + first.sameNameTeams.join(',') });
+  const clash = dispatch_({ action: 'updateMyName', data: { display_name: 'yamada' } }, p1);
+  results.push({ title: '同じ表示名（全角・大文字の違いはそろえて比べる）にすると、断らずに、そのチームの名前を返す', expected: 'yamada/重なりテスト', actual: clash.displayName + '/' + clash.sameNameTeams.join(',') });
+  const after = dispatch_({ action: 'whoami', data: {} }, p1);
+  results.push({ title: 'あとから同じ名前にした人にも、開いたときに知らせる（個人用の記録は見ない）', expected: '重なりテスト', actual: after.sameNameTeams.join(',') });
+  results.push({ title: '知らせる中身に、ほかの人のIDや名前は入らない', expected: false, actual: JSON.stringify(after.sameNameTeams).indexOf('Utest_same2') !== -1 });
 }
 
 /* ---------- チームの作成と一覧 ---------- */
@@ -121,37 +144,47 @@ function testTeamCreation_(results) {
   const ownerMembership = findRecord_(CONFIG.SHEET.MEMBERSHIPS, function (m) { return m.user_id === owner.userId && m.team_id === teamRow.team_id; });
   results.push({ title: 'memberships に代表者として1行入る', expected: 'owner', actual: ownerMembership ? ownerMembership.role : '（無い）' });
 
-  // 使われている番号
+  // 使われているID
   results.push({
-    title: 'チーム番号：使われている番号は作れない',
+    title: 'ID：使われているIDは作れない',
     expected: 'team_number：' + TEAM_NUMBER_USED_MESSAGE,
     actual: errorSummary_(function () { createTestTeam_(other, '999999901', '別チーム', 'abcdef'); }),
   });
 
-  // 画面からは、自動テスト専用の番号を作れない
+  // 画面からは、自動テスト用のIDを作れない。一般の人には「すでに使われています」とだけ出す（2026-11-15）
   results.push({
-    title: 'チーム番号：画面からは自動テスト専用の番号（999999950）を作れない',
-    expected: 'team_number：' + TEAM_NUMBER_TEST_MESSAGE,
+    title: 'ID：画面からは自動テスト用のID（999999950）を作れず、「すでに使われています」とだけ出す',
+    expected: 'team_number：' + TEAM_NUMBER_USED_MESSAGE,
     actual: errorSummary_(function () { viaScreen(other, '999999950', '別チーム', 'abcdef'); }),
   });
 
-  // 番号の形（画面から。形がまちがっているので、必ず断られる）
+  // IDの形（画面から。形がまちがっているので、必ず断られる。作られることはない）
   [
-    ['0123', '先頭が0'],
-    ['1234567890', '10桁'],
-    ['abc', '数字以外'],
+    ['ab', '3文字より短い'],
+    ['a'.repeat(21), '21文字'],
+    ['abc-1', '記号入り'],
+    ['チーム12', '英数字以外'],
     ['', '空'],
   ].forEach(function (c) {
     const actual = errorSummary_(function () { viaScreen(other, c[0], '別チーム', 'abcdef'); });
-    results.push({ title: 'チーム番号の形：' + c[1] + 'は断られる', expected: 'team_number', actual: actual.split('：')[0] });
+    results.push({ title: 'IDの形：' + c[1] + 'は断られる', expected: 'team_number', actual: actual.split('：')[0] });
   });
-  results.push({ title: 'チーム番号の形：全角数字「２０２６」は「2026」にそろう', expected: '2026', actual: checkTeamNumberFormat_('２０２６', []) });
+  const idOf = function (v, opts) { return checkTeamNumberFormat_(v, [], opts); };
+  results.push({ title: 'IDのそろえ方：全角・大文字は半角の小文字にそろう', expected: 'team2026/nostradamus/2026',
+    actual: [idOf('ＴＥＡＭ２０２６', { forCreate: true }), idOf(' NostraDamus ', { forCreate: true }), idOf('２０２６', { forCreate: true })].join('/') });
+  results.push({ title: 'IDの形：作るときは4〜20文字（4文字・20文字はよい）', expected: 'abcd/' + 'a'.repeat(20),
+    actual: idOf('abcd', { forCreate: true }) + '/' + idOf('a'.repeat(20), { forCreate: true }) });
+  results.push({ title: 'IDの形：参加するときは、前の短い番号（5・201）もそのまま使える', expected: '5/201', actual: idOf('5') + '/' + idOf('201') });
+  results.push({ title: 'IDの形：管理者は、テスト用のID（5）を短くても作れる。一般の人は作れない（短い）', expected: '5/null',
+    actual: idOf('5', { forCreate: true, isAdmin: true }) + '/' + idOf('5', { forCreate: true, isAdmin: false }) });
 
   // エラーの文：どの決まりに合わないかが分かる（2026-11-15）
-  const numberMessage = function (v) { const e = []; checkTeamNumberFormat_(v, e); return e.length ? e[0].message : 'OK'; };
-  results.push({ title: 'エラーの文：番号が空なら「番号を入力してください」', expected: '番号を入力してください', actual: numberMessage('') });
-  results.push({ title: 'エラーの文：番号に数字以外・10けた・先頭0なら、形の決まりを出す', expected: [TEAM_NUMBER_FORMAT_MESSAGE, TEAM_NUMBER_FORMAT_MESSAGE, TEAM_NUMBER_FORMAT_MESSAGE].join('/'),
-    actual: [numberMessage('abc'), numberMessage('1234567890'), numberMessage('0123')].join('/') });
+  const idMessage = function (v, opts) { const e = []; checkTeamNumberFormat_(v, e, opts); return e.length ? e[0].message : 'OK'; };
+  results.push({ title: 'エラーの文：IDが空なら「IDを入力してください」', expected: 'IDを入力してください', actual: idMessage('') });
+  results.push({ title: 'エラーの文：IDに記号・ひらがななら、使える文字を出す', expected: TEAM_ID_CHARS_MESSAGE + '/' + TEAM_ID_CHARS_MESSAGE,
+    actual: idMessage('team_01', { forCreate: true }) + '/' + idMessage('ちーむ', { forCreate: true }) });
+  results.push({ title: 'エラーの文：IDが短い・長いと、いまの文字数も出す', expected: 'IDは4〜20文字にしてください（いま3文字）/IDは20文字までです（いま21文字）',
+    actual: idMessage('abc', { forCreate: true }) + '/' + idMessage('a'.repeat(21), { forCreate: true }) });
   results.push({ title: 'エラーの文：名前が空・長すぎる・改行入り', expected: 'チーム名を入力してください/表示名は20文字までです（いま21文字）/大会名に、改行などの使えない文字が入っています/OK',
     actual: [nameProblem_('', 'チーム名', 30), nameProblem_('あ'.repeat(21), '表示名', 20), nameProblem_('A\nB', '大会名', 30), nameProblem_('😀'.repeat(20), '表示名', 20) || 'OK'].join('/') });
   const passMessage = function (v) { try { validatePassphrase_(v); return 'OK'; } catch (e) { return e.details[0].message; } };
@@ -160,23 +193,37 @@ function testTeamCreation_(results) {
   results.push({ title: 'エラーの文：合言葉に漢字・記号・空白があると、使える文字を出す', expected: '合言葉に使えるのは、ひらがな・カタカナ・英字・数字です（漢字・記号・空白は使えません）',
     actual: passMessage('野球ないん99') });
 
-  // 番号の決まり（シートを使わずに確かめる。予約番号や本物の番号には書き込まない）
+  // 目に見えない文字を取り除く（2026-11-15）
+  const Z = String.fromCharCode(0x200B); // ゼロ幅スペース
+  const RLO = String.fromCharCode(0x202E); // 文字の向きを変える文字
+  const ZWJ = String.fromCharCode(0x200D); // 絵文字のつなぎ（残す）
+  results.push({ title: '名前から、ゼロ幅スペースと文字の向きを変える文字を取り除く', expected: 'たろう', actual: cleanName_(' た' + Z + 'ろ' + RLO + 'う ') });
+  results.push({ title: '絵文字のつなぎ（U+200D）は残す（絵文字がこわれないように）', expected: true, actual: cleanName_('🏃' + ZWJ + '♂') === '🏃' + ZWJ + '♂' });
+  results.push({ title: '見えない文字だけの名前は、空として断る', expected: 'チーム名を入力してください', actual: nameProblem_(cleanName_(Z + Z), 'チーム名', 30) });
+
+  // IDの決まり（シートを使わずに確かめる。テスト用や本物のIDには書き込まない）
   [
-    ['5', false, false, TEAM_NUMBER_RESERVED_MESSAGE, '予約番号（5）は管理者以外は作れない'],
-    ['1998', false, false, TEAM_NUMBER_RESERVED_MESSAGE, '予約番号の上限（1998）は管理者以外は作れない'],
-    ['1990', true, false, 'null', '管理者は予約番号（1990）を作れる'],
+    ['5', false, false, TEAM_NUMBER_USED_MESSAGE, 'テスト用のID（5）は、一般の人には「すでに使われています」とだけ出す'],
+    ['1998', false, false, TEAM_NUMBER_USED_MESSAGE, 'テスト用のIDの上限（1998）も、一般の人には同じ文'],
+    ['1990', true, false, 'null', '管理者はテスト用のID（1990）を作れる'],
     ['1999', false, false, 'null', '1999 は誰でも作れる'],
-    ['999999899', false, false, 'null', '999999899 は誰でも作れる（自動テスト専用の手前）'],
-    ['999999900', true, false, TEAM_NUMBER_TEST_MESSAGE, '管理者でも、自動テスト専用の番号（999999900）は作れない'],
-    ['999999999', false, false, TEAM_NUMBER_TEST_MESSAGE, '自動テスト専用の上限（999999999）は作れない'],
-    ['999999900', false, true, 'null', '自動テストは、自動テスト専用の番号を作れる'],
-    ['1999', false, true, '自動テストでは', '自動テストは、本物の番号（1999）を作れない'],
-    ['5', true, true, '自動テストでは', '自動テストは、予約番号（5）を作れない'],
+    ['0123', false, false, 'null', '先頭が0の「0123」は、テスト用のID（123）とは別のIDとして誰でも作れる'],
+    ['team2026', false, false, 'null', '英字と数字のID（team2026）は誰でも作れる'],
+    ['999999899', false, false, 'null', '999999899 は誰でも作れる（自動テスト用の手前）'],
+    ['999999900', true, false, TEAM_ID_ADMIN_TEST_MESSAGE, '管理者でも、自動テスト用のID（999999900）は作れない（管理者には理由を出す）'],
+    ['999999999', false, false, TEAM_NUMBER_USED_MESSAGE, '自動テスト用のIDの上限（999999999）は、一般の人には「すでに使われています」とだけ出す'],
+    ['999999900', false, true, 'null', '自動テストは、自動テスト用のIDを作れる'],
+    ['1999', false, true, '自動テストでは', '自動テストは、本物のID（1999）を作れない'],
+    ['5', true, true, '自動テストでは', '自動テストは、テスト用のID（5）を作れない'],
   ].forEach(function (c) {
     const problem = teamNumberRuleProblem_(c[0], c[1], c[2]);
     const actual = problem === null ? 'null' : (problem.indexOf('自動テストでは') === 0 ? '自動テストでは' : problem);
-    results.push({ title: '番号の決まり：' + c[4], expected: c[3], actual: actual });
+    results.push({ title: 'IDの決まり：' + c[4], expected: c[3], actual: actual });
   });
+  results.push({ title: '一般の人に出す文には、「テスト」「予約」という言葉が入らない', expected: false, actual: /テスト|予約/.test(TEAM_NUMBER_USED_MESSAGE) });
+  results.push({ title: 'テスト用・自動テスト用のIDの見分け方（数字だけのときだけ）', expected: 'true/false/false/true/false',
+    actual: [isReservedTeamId_('1998'), isReservedTeamId_('0123'), isReservedTeamId_('1999'), isTestTeamNumber_('999999900'), isTestTeamNumber_('0999999900')].join('/') });
+  results.push({ title: 'IDで探すとき、大文字・全角でも同じチームが見つかる', expected: true, actual: Boolean(findTeamByNumber_('９９９９９９９０１')) });
   results.push({
     title: '自動テスト用の作り方は、本物の番号（1999）を受け付けない',
     expected: true,

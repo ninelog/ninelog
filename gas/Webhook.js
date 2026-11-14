@@ -170,7 +170,7 @@ function rankingReplyMessage_(user) {
   const teams = handleListMyTeams_({}, user).teams.filter(function (t) { return t.orgType === ORG_TYPE.TEAM; });
   if (!teams.length) {
     return flexMessage_('ランキングは、チームに参加すると見られます', flexBubble_('ランキング', '',
-      [flexText_('ランキングは、チームに参加すると見られます。代表者から番号と合言葉を教えてもらい、「チーム・設定」から参加してください。')],
+      [flexText_('ランキングは、チームに参加すると見られます。代表者からIDと合言葉を教えてもらい、「チーム・設定」から参加してください。')],
       'チーム・設定', 'team.html'));
   }
   const shown = teams.slice(0, TALK_RANKING_TEAMS);

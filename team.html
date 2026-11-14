@@ -30,11 +30,11 @@
       <!-- チーム・大会に参加する -->
       <form class="nl-card" id="join-form" novalidate>
         <h2>チーム・大会に参加する</h2>
-        <p class="nl-note" style="margin:0 0 12px">代表者から教えてもらった「番号」と「合言葉」を入れてください。大会の番号と合言葉でも参加できます。</p>
+        <p class="nl-note" style="margin:0 0 12px">代表者から教えてもらった「ID」と「合言葉」を入れてください。大会のIDと合言葉でも参加できます。</p>
         <div class="nl-field">
-          <label for="join-number">番号</label>
-          <input type="text" id="join-number" name="team_number" inputmode="numeric" autocomplete="off" maxlength="9">
-          <p class="nl-note">番号：代表者から教えてもらった数字（1〜9けた）。</p>
+          <label for="join-number">ID</label>
+          <input type="text" id="join-number" name="team_number" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="20">
+          <p class="nl-note">ID：代表者から教えてもらったID。大文字・小文字は区別しません。</p>
         </div>
         <div class="nl-field">
           <label for="join-pass">合言葉</label>
@@ -48,7 +48,7 @@
       <!-- チーム・大会を作る（C-9・C-9b） -->
       <form class="nl-card" id="create-form" novalidate>
         <h2>チーム・大会を作る</h2>
-        <p class="nl-note" style="margin:0 0 12px">作った人が、その代表者になります。作ったあとで、番号と合言葉をメンバーに伝えてください。</p>
+        <p class="nl-note" style="margin:0 0 12px">作った人が、その代表者になります。作ったあとで、IDと合言葉をメンバーに伝えてください。</p>
         <fieldset class="nl-radios">
           <legend>作るもの</legend>
           <label><input type="radio" name="org_type" value="team" checked> チーム</label>
@@ -56,9 +56,9 @@
         </fieldset>
         <p class="nl-note" id="tournament-hint" hidden style="margin:-4px 0 14px">大会の試合として登録した試合の成績が、チームをまたいで大会のランキングに集計されます。大会に参加する人は、それぞれのチームの試合を作るときに、この大会を選びます。</p>
         <div class="nl-field">
-          <label for="create-number">番号</label>
-          <input type="text" id="create-number" name="team_number" inputmode="numeric" autocomplete="off" maxlength="9">
-          <p class="nl-note" id="number-hint">番号：1999〜999999899の数字（1〜9けた。先頭に0は付けません）。ほかのチーム・大会が使っている番号は使えません。</p>
+          <label for="create-number" id="create-number-label">チームID</label>
+          <input type="text" id="create-number" name="team_number" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="20">
+          <p class="nl-note" id="number-hint">ID：半角の英字・数字で4〜20文字（例：nostradamus、team2026）。大文字・小文字は区別しません。ほかのチーム・大会が使っているIDは使えません。</p>
         </div>
         <div class="nl-field">
           <label for="create-name" id="create-name-label">チーム名</label>
@@ -76,7 +76,7 @@
       <!-- 個人用の記録を始める（まだ記録場所が無い人にだけ出す。11.8章。C-9c） -->
       <section class="nl-card" id="solo-card" hidden>
         <h2>個人用の記録を始める</h2>
-        <p class="nl-note" style="margin:0 0 12px">チームに入らずに、自分の成績を記録できます。番号と合言葉は不要で、ほかの人は入れません。ランキングはありません。あとからチームに参加しても、記録はそのまま残ります。</p>
+        <p class="nl-note" style="margin:0 0 12px">チームに入らずに、自分の成績を記録できます。IDと合言葉は不要で、ほかの人は入れません。ランキングはありません。あとからチームに参加しても、記録はそのまま残ります。</p>
         <button type="button" class="nl-btn nl-btn--sub nl-btn--block" id="btn-solo">個人用の記録を始める</button>
       </section>
 
@@ -91,6 +91,8 @@
         </div>
         <button type="submit" class="nl-btn nl-btn--sub nl-btn--block" id="btn-name">表示名を変える</button>
         <p class="nl-note" id="name-source"></p>
+        <!-- 同じチーム・大会に、同じ表示名の人がいるとき（2026-11-15。断らずに知らせるだけ） -->
+        <div class="nl-alert nl-alert--warn" id="same-name" role="note" hidden></div>
       </form>
 
       <!-- 利用規約・プライバシーポリシー（C-14） -->

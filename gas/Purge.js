@@ -12,7 +12,7 @@
  * スクリプトプロパティ：テストの途中の TEST_ALL_REMAINING だけ消す（隠し味・合鍵・管理者などは残す）。
  *
  * 動かし方（2段にして、消す前に件数を確かめる）：
- * 1. 本物の番号のチーム・大会で消したいものがあれば、スクリプトプロパティ PURGE_DELETE_TEAM_NUMBERS に番号をカンマ区切りで入れる
+ * 1. 本物のIDのチーム・大会で消したいものがあれば、スクリプトプロパティ PURGE_DELETE_TEAM_NUMBERS にIDをカンマ区切りで入れる（大文字・小文字、全角・半角は区別しない）
  * 2. previewPurge を実行する → 実行ログに、消す件数の表と「確かめの番号」が出る（何も消さない）
  * 3. 表を確かめたら、スクリプトプロパティ PURGE_CONFIRM に「確かめの番号」を入れる
  * 4. runPurge を実行する → 同じスプレッドシートの中に、消す前の各シートの控え（「控え_games_20261120_2130」など）を作ってから消す
@@ -32,7 +32,7 @@ function purgeBackupSheets_() {
 /** スクリプトプロパティ PURGE_DELETE_TEAM_NUMBERS（消す本物の番号。カンマ区切り）を読む */
 function purgeDeleteNumbers_() {
   const text = PropertiesService.getScriptProperties().getProperty('PURGE_DELETE_TEAM_NUMBERS') || '';
-  return text.split(',').map(function (s) { return toHalfWidthDigits_(s.trim()); }).filter(Boolean);
+  return text.split(',').map(function (s) { return normalizeTeamId_(s); }).filter(Boolean);
 }
 
 /** 全角の数字を半角にする（スクリプトプロパティに全角で入れても読めるように） */
@@ -55,15 +55,14 @@ function purgeReadTables_() {
  */
 function purgePlan_(tables, deleteNumbers, rowFilter) {
   const allowed = rowFilter || function () { return true; };
-  const numbers = deleteNumbers.map(String);
+  const numbers = deleteNumbers.map(function (n) { return String(n); });
   const teams = tables[CONFIG.SHEET.TEAMS] || [];
   const teamDeleteReason = function (t) {
     const type = orgTypeOf_(t);
-    const n = Number(t.team_number);
     if (type === ORG_TYPE.SOLO) return '個人用の記録';
-    if (n >= 1 && n <= CONFIG.RESERVED_TEAM_NUMBER_MAX) return '予約番号（テスト用）';
-    if (isTestTeamNumber_(t.team_number)) return '自動テスト専用の番号';
-    if (numbers.indexOf(String(t.team_number)) !== -1) return '消すと決めた番号';
+    if (isReservedTeamId_(t.team_number)) return 'テスト用のID（1〜' + CONFIG.RESERVED_TEAM_NUMBER_MAX + '）';
+    if (isTestTeamNumber_(t.team_number)) return '自動テスト用のID';
+    if (numbers.indexOf(normalizeTeamId_(t.team_number)) !== -1) return '消すと決めたID';
     return '';
   };
   const teamsDeleted = [];
@@ -89,7 +88,7 @@ function purgePlan_(tables, deleteNumbers, rowFilter) {
   });
 
   // 消すと決めた番号のうち、本物の番号のチーム・大会として見つからないもの（打ち間違いかもしれないので止める）
-  const realNumbers = teams.filter(function (t) { return orgTypeOf_(t) !== ORG_TYPE.SOLO; }).map(function (t) { return String(t.team_number); });
+  const realNumbers = teams.filter(function (t) { return orgTypeOf_(t) !== ORG_TYPE.SOLO; }).map(function (t) { return normalizeTeamId_(t.team_number); });
   const unknownNumbers = numbers.filter(function (n) { return realNumbers.indexOf(n) === -1; });
 
   return { rows: rows, teamsDeleted: teamsDeleted, teamsKept: teamsKept, unknownNumbers: unknownNumbers };
@@ -129,17 +128,17 @@ function purgeSummaryLines_(tables, plan) {
   const soloCount = plan.teamsDeleted.filter(function (d) { return orgTypeOf_(d.record) === ORG_TYPE.SOLO; }).length;
   plan.teamsDeleted.forEach(function (d) {
     if (orgTypeOf_(d.record) === ORG_TYPE.SOLO) return;
-    lines.push('- 番号 ' + d.record.team_number + '　' + typeLabel(d.record) + '「' + d.record.team_name + '」　メンバー ' + members(d.record) + '人　（' + d.reason + '）');
+    lines.push('- ID ' + d.record.team_number + '　' + typeLabel(d.record) + '「' + d.record.team_name + '」　メンバー ' + members(d.record) + '人　（' + d.reason + '）');
   });
   if (soloCount) lines.push('- 個人用の記録 ' + soloCount + '件');
   lines.push('');
   lines.push('■ 残すチーム・大会（' + plan.teamsKept.length + '）　※ 試合と成績は消えます。メンバーの参加は残ります');
   plan.teamsKept.forEach(function (d) {
-    lines.push('- 番号 ' + d.record.team_number + '　' + typeLabel(d.record) + '「' + d.record.team_name + '」　メンバー ' + members(d.record) + '人');
+    lines.push('- ID ' + d.record.team_number + '　' + typeLabel(d.record) + '「' + d.record.team_name + '」　メンバー ' + members(d.record) + '人');
   });
   if (plan.unknownNumbers.length) {
     lines.push('');
-    lines.push('■ 注意：PURGE_DELETE_TEAM_NUMBERS の番号のうち、見つからないもの：' + plan.unknownNumbers.join(', ') + '（このままでは runPurge は止まります）');
+    lines.push('■ 注意：PURGE_DELETE_TEAM_NUMBERS のIDのうち、見つからないもの：' + plan.unknownNumbers.join(', ') + '（このままでは runPurge は止まります）');
   }
   return lines;
 }
@@ -185,7 +184,7 @@ function runPurgeCore_() {
       return { done: false, stopped: 'MISMATCH', message: '止めました：確かめの番号が合いません（previewPurge のあとに中身が変わったか、番号の打ち間違いです）。previewPurge からやり直してください。何も消していません。' };
     }
     if (plan.unknownNumbers.length) {
-      return { done: false, stopped: 'UNKNOWN_NUMBER', message: '止めました：PURGE_DELETE_TEAM_NUMBERS の番号 ' + plan.unknownNumbers.join(', ') + ' が見つかりません。番号を直して、previewPurge からやり直してください。何も消していません。' };
+      return { done: false, stopped: 'UNKNOWN_NUMBER', message: '止めました：PURGE_DELETE_TEAM_NUMBERS のID ' + plan.unknownNumbers.join(', ') + ' が見つかりません。IDを直して、previewPurge からやり直してください。何も消していません。' };
     }
     const backups = backupSheets_(purgeBackupSheets_(), new Date());
     applyPurgePlan_(plan);

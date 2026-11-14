@@ -80,7 +80,18 @@ function testPurgePlanScenario_(results) {
   const lines = purgeSummaryLines_(tables, plan2).join('\n');
   results.push({ title: '件数の表に、シートごとの今の行数・消す・残すが出る', expected: true, actual: lines.indexOf('| games | 2 | 2 | 0 |') !== -1 && lines.indexOf('| users | 2 | 0 | 2 |') !== -1 });
   results.push({ title: '件数の表に、消すチームの理由と、残すチームが出る', expected: true,
-    actual: lines.indexOf('番号 5　チーム「管理者テスト」　メンバー 1人　（予約番号（テスト用））') !== -1 && lines.indexOf('番号 2001　チーム「本物ナイン」　メンバー 2人') !== -1 });
+    actual: lines.indexOf('ID 5　チーム「管理者テスト」　メンバー 1人　（テスト用のID（1〜1998））') !== -1 && lines.indexOf('ID 2001　チーム「本物ナイン」　メンバー 2人') !== -1 });
+
+  // IDが英字・数字になってからの見分け方（2026-11-15）
+  const idTables = {};
+  idTables[T.TEAMS] = [
+    r({ team_id: 'z1', team_number: '0123', team_name: '先頭0', org_type: 'team' }),
+    r({ team_id: 'z2', team_number: 'team2', team_name: '英字', org_type: 'team' }),
+    r({ team_id: 'z3', team_number: 'nostradamus', team_name: '本物', org_type: 'team' }),
+  ];
+  const idPlan = purgePlan_(idTables, [normalizeTeamId_('ＴＥＡＭ２')]);
+  results.push({ title: 'ID：先頭0の「0123」はテスト用ではないので残し、消すと決めたID（全角・大文字で書いても）は消す', expected: 'z2/z1,z3',
+    actual: ids(idPlan.rows[T.TEAMS], 'team_id') + '/' + idPlan.teamsKept.map(function (d) { return d.record.team_id; }).sort().join(',') });
 
   // 控えの名前
   results.push({ title: '控えのシートの名前', expected: '控え_games_20261120_2130', actual: purgeBackupName_('games', new Date(Date.UTC(2026, 10, 20, 12, 30))) });

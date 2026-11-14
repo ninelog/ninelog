@@ -47,6 +47,8 @@ const CONFIG = {
   RESERVED_TEAM_NUMBER_MAX: 1998, // 1〜この番号は、管理者が人の手でテストするための予約番号。管理者だけが作れる
   TEST_TEAM_NUMBER_MIN: 999999900, // ここから下の MAX までは、プログラムの自動テスト専用。
   TEST_TEAM_NUMBER_MAX: 999999999, // 画面からは管理者を含めて誰も作れない
+  TEAM_ID_MIN: 4,                 // チーム・大会のIDの文字数（作るとき。2026-11-15）
+  TEAM_ID_MAX: 20,                //   （参加するときは1〜この文字数。前の短い番号も使えるように）
   TEAM_NAME_MAX: 30,              // チーム名の最大文字数
   DISPLAY_NAME_MAX: 20,           // 本人が決める表示名の最大文字数
   DEFAULT_DISPLAY_NAME: 'LINEユーザー', // LINEの名前が取れなかったときの表示名
