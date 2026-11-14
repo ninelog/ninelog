@@ -11,6 +11,7 @@
     - C-6b：記録カレンダー（●自分の成績・○チームの試合。日を押すと、その日の成績と「直す」「入力する」）
     - C-6c：成績の推移グラフ（月ごとの打率・OPS・防御率。その月だけ／積み上げ）
     - C-6d：相手別・大会別・区分別の集計（自分の記録がある試合だけ。勝敗は出さない）
+    - C-10：入力した打撃成績の一覧（直す・消す）
   -->
 </head>
 <body>
@@ -86,6 +87,16 @@
         <p class="nl-note" id="cal-note" style="margin-top:0"></p>
         <div id="cal"></div>
         <div id="day" aria-live="polite"></div>
+      </section>
+
+      <!-- 入力した成績の一覧（C-10：打撃。直す・消す。3.4章・4.5b章） -->
+      <section class="nl-card" id="rec-card">
+        <h2>入力した成績</h2>
+        <p class="nl-note" id="rec-note" style="margin-top:0"></p>
+        <div class="nl-rows" id="rec-list"></div>
+        <div class="nl-actions" id="rec-more-box" hidden>
+          <button type="button" class="nl-btn nl-btn--sub nl-btn--block" id="rec-more"></button>
+        </div>
       </section>
     </div>
   </main>

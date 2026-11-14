@@ -8,8 +8,9 @@
  * C-6c：成績の推移グラフ（月ごとの打率・OPS・防御率。その月だけ／積み上げ。Chart.js）。11.4章・6.5章
  * C-6d：相手別・大会別・区分別の集計（js/breakdown.js。自分の集計なので勝敗は出さない：B-15の細部4）。11.4章
  * C-6b：記録カレンダー（●自分の成績・○チームの試合。日を押すと、その日の試合と成績、「直す」「入力する」）。11.3章
+ * C-10：入力した打撃成績の一覧（選んでいる年度と範囲）。「直す」は「成績を入力」へ、「消す」はその場で（4.5b章）
  *
- * 使うGASの操作：getMyStats・getCalendar・listMyBattingRecords・listMyPitchingRecords
+ * 使うGASの操作：getMyStats・getCalendar・listMyBattingRecords・listMyPitchingRecords・deleteBattingRecord
  */
 (function () {
   const $ = function (id) { return document.getElementById(id); };
@@ -52,6 +53,7 @@
       renderTrend();
       breakdown.update(res.breakdowns);
       syncCalendar(res);
+      renderRecords();
     }, function (err) {
       if (my !== loading) return;
       $('content').classList.remove('is-loading');
@@ -69,6 +71,7 @@
 
   function reload() {
     NinelogUI.clearAlerts($('filters'));
+    recs.limit = REC_PAGE; // 選び直したら、入力した成績の一覧は最初の10件に戻す（C-10）
     const data = Object.assign({ season: $('season').value }, scopeData());
     load(data).catch(function (err) {
       // 読めなかったときは、選択欄を、いま出している成績のものに戻す（選択欄と中身が食い違わないように）
@@ -330,16 +333,25 @@
       onMonthChange: function (month) { loadCalendar(month); },
     });
     renderDay();
-    // 自分の記録（全チーム）を1回だけ読む：押した日に、自分の成績の数を出すため
-    Promise.all([NinelogApp.call('listMyBattingRecords', {}), NinelogApp.call('listMyPitchingRecords', {})]).then(function (res) {
+    loadMine().catch(function (err) { NinelogUI.showError(err, $('cal-card')); });
+  }
+
+  /**
+   * 自分の記録（全チーム）を読む：カレンダーで押した日の成績の数と、入力した成績の一覧（C-10）に使う。
+   * 最初に1回と、記録を消したあとに読み直す。
+   */
+  function loadMine() {
+    return Promise.all([NinelogApp.call('listMyBattingRecords', {}), NinelogApp.call('listMyPitchingRecords', {})]).then(function (res) {
       const byId = function (records) {
         const map = {};
         records.forEach(function (r) { map[r.record_id] = r; });
         return map;
       };
       cal.records = { batting: byId(res[0].records), pitching: byId(res[1].records) };
+      recs.lists = { batting: res[0].records, pitching: res[1].records }; // 試合日の新しい順（GASの並び）
       renderDay();
-    }).catch(function (err) { NinelogUI.showError(err, $('cal-card')); });
+      renderRecords();
+    });
   }
 
   /**
@@ -437,6 +449,116 @@
       .forEach(function (f) { if (Number(b[f[0]])) parts.push(f[1] + b[f[0]]); });
     return parts.join('　');
   }
+
+  /* ---------- 入力した成績の一覧（C-10。3.4章・4.5b章） ---------- */
+
+  const REC_PAGE = 10; // 最初に出す件数（「もっと見る」で10件ずつ足す）
+  const recs = { lists: null, limit: REC_PAGE, confirming: '' };
+
+  /** 選んでいる年度と範囲に入る記録だけ（getMyStats の決まりと同じ：年度・チーム・大会） */
+  function recordsInScope(list) {
+    if (!shown) return [];
+    return list.filter(function (r) {
+      return (shown.season === 'all' || String(r.game_date).slice(0, 4) === shown.season)
+        && (!shown.teamId || r.team_id === shown.teamId)
+        && (!shown.tournamentId || r.tournament_id === shown.tournamentId);
+    });
+  }
+
+  function teamNameOf(teamId) {
+    const t = shown ? shown.teams.filter(function (x) { return x.teamId === teamId; })[0] : null;
+    return t ? t.teamName : '';
+  }
+
+  function renderRecords() {
+    const box = $('rec-list');
+    box.innerHTML = '';
+    $('rec-more-box').hidden = true;
+    if (!recs.lists || !shown) {
+      $('rec-note').textContent = '';
+      box.appendChild(el('p', 'nl-loading', '読み込み中です…'));
+      return;
+    }
+    const list = recordsInScope(recs.lists.batting);
+    $('rec-note').textContent = '打撃成績：選んでいる年度と範囲の ' + list.length + '件（試合日の新しい順）。' +
+      '直せる・消せるのは、試合日から30日以内の記録だけです。';
+    if (!list.length) {
+      box.appendChild(el('p', 'nl-empty', 'この年度と範囲の打撃成績はありません。'));
+      return;
+    }
+    list.slice(0, recs.limit).forEach(function (r) { box.appendChild(recordRow(r)); });
+    if (list.length > recs.limit) {
+      $('rec-more-box').hidden = false;
+      $('rec-more').textContent = 'もっと見る（残り' + (list.length - recs.limit) + '件）';
+    }
+  }
+
+  function recordRow(r) {
+    const row = el('div', 'nl-row');
+    const main = el('div', 'nl-row__main');
+    main.appendChild(el('span', 'nl-row__name', dateLabel(r.game_date) + '　第' + r.game_number + '試合　' +
+      (r.opponent ? 'vs ' + r.opponent : '（相手は未入力）')));
+    if (r.tournament_name) main.appendChild(el('span', 'nl-badge', r.tournament_name));
+    main.appendChild(el('span', 'nl-row__meta', teamNameOf(r.team_id)));
+    row.appendChild(main);
+    row.appendChild(el('p', 'nl-day__line', battingLine(r)));
+
+    if (!r.editable) {
+      row.appendChild(el('p', 'nl-note', '試合日から30日を過ぎたので、直したり消したりできません。'));
+      return row;
+    }
+    const actions = el('div', 'nl-row__actions');
+    // 直す：「成績を入力」で、この試合を選んだ状態で開く（C-6b と同じ）
+    const edit = el('a', 'nl-chip', '直す');
+    edit.href = 'input.html?' + new URLSearchParams({ team: r.team_id, date: r.game_date, game: r.game_id }).toString();
+    actions.appendChild(edit);
+    // 消す：押すと確かめる文が出て、もう一度押すと消す（まちがえて押さないように）
+    const del = el('button', 'nl-chip nl-chip--danger', '消す');
+    del.type = 'button';
+    actions.appendChild(del);
+    row.appendChild(actions);
+
+    const confirmBox = el('div', '');
+    confirmBox.hidden = recs.confirming !== r.record_id;
+    confirmBox.appendChild(el('p', 'nl-note', 'この試合の打撃成績を消しますか？ 消すと、成績・ランキングの計算から外れます。' +
+      'まちがえて消したときは、もう一度入力してください（' + dateLabel(r.editable_until) + 'まで）。'));
+    const yesNo = el('div', 'nl-actions');
+    const yes = el('button', 'nl-btn nl-btn--danger', '消す');
+    yes.type = 'button';
+    const no = el('button', 'nl-btn nl-btn--sub', 'やめる');
+    no.type = 'button';
+    yesNo.appendChild(yes);
+    yesNo.appendChild(no);
+    confirmBox.appendChild(yesNo);
+    row.appendChild(confirmBox);
+
+    del.addEventListener('click', function () { recs.confirming = r.record_id; confirmBox.hidden = false; actions.hidden = true; });
+    no.addEventListener('click', function () { recs.confirming = ''; confirmBox.hidden = true; actions.hidden = false; NinelogUI.clearAlerts(row); });
+    if (!confirmBox.hidden) actions.hidden = true;
+    yes.addEventListener('click', function () {
+      NinelogUI.clearAlerts(row);
+      NinelogUI.withBusy(yes, function () {
+        return NinelogApp.call('deleteBattingRecord', { record_id: r.record_id }).then(function () {
+          recs.confirming = '';
+          // 消した記録を一覧・カレンダー・成績から外す（読み直す）
+          return Promise.all([
+            loadMine(),
+            load(Object.assign({ season: shown.season }, shown.teamId ? { team_id: shown.teamId } : shown.tournamentId ? { tournament_id: shown.tournamentId } : {})),
+          ]).then(function () {
+            loadCalendar(cal.view.month());
+            // 消した行は無くなるので、お知らせは一覧の四角の一番下に出す
+            NinelogUI.showOk('打撃成績を消しました：' + dateLabel(r.game_date) + '　第' + r.game_number + '試合', $('rec-card'));
+          });
+        }).catch(function (err) { NinelogUI.showError(err, row); });
+      });
+    });
+    return row;
+  }
+
+  $('rec-more').addEventListener('click', function () {
+    recs.limit += REC_PAGE;
+    renderRecords();
+  });
 
   $('season').addEventListener('change', reload);
   $('scope').addEventListener('change', reload);

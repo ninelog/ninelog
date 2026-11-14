@@ -429,3 +429,6 @@ body {
 
 /* 大会のランキングのチーム名（C-7d） */
 .nl-rank__team { font-size: 13px; color: var(--sub); }
+
+/* リンクの小さなボタン（「直す」など）は、ボタンと同じ見た目にする（C-10） */
+a.nl-chip { text-decoration: none; display: inline-flex; align-items: center; }
