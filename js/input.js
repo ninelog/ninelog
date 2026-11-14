@@ -20,6 +20,7 @@
     nextGameNumber: 1,
     myTournaments: [],
     selectedGameId: '',
+    editingGameId: '', // 情報を直している試合（C-13）
   };
 
   /* ---------- 日付（日本時間） ---------- */
@@ -216,6 +217,141 @@
     const note = $('selected-note');
     note.hidden = !(g.tournament_id && !g.in_my_tournament);
     note.textContent = 'この大会に参加していないので、この試合の成績は大会のランキングには載りません（チームのランキングには載ります）。';
+
+    // 試合の情報を直す・消す（C-13）：試合を作った人とチームの代表者だけ（GASが can_edit で知らせる）
+    if (state.editingGameId !== g.game_id) closeEdit();
+    $('edit-actions').hidden = !g.can_edit;
+    $('edit-note').hidden = Boolean(g.can_edit);
+  }
+
+  /* ---------- 試合の情報を直す・消す（C-13。11.1章） ---------- */
+
+  function selectedGame() {
+    return state.games.filter(function (x) { return x.game_id === state.selectedGameId; })[0];
+  }
+
+  function closeEdit() {
+    state.editingGameId = '';
+    $('edit-game').hidden = true;
+    $('delete-confirm').hidden = true;
+    $('btn-edit-game').hidden = false;
+    $('btn-delete-game').hidden = false;
+    NinelogUI.clearAlerts($('edit-game'));
+  }
+
+  /** 直す欄を開いて、今の試合の情報を入れておく */
+  function openEdit() {
+    const g = selectedGame();
+    if (!g) return;
+    closeEdit();
+    NinelogUI.clearAlerts($('selected'));
+    state.editingGameId = g.game_id;
+
+    // 試合日：30日以内の日を選択欄に並べる（新しい日から）
+    const dateSel = $('edit-date');
+    dateSel.innerHTML = '';
+    for (let d = state.max; d >= state.min; d = shiftDate(d, -1)) {
+      const o = el('option', '', dateLabel(d));
+      o.value = d;
+      dateSel.appendChild(o);
+    }
+    dateSel.value = g.game_date;
+
+    const numSel = $('edit-number');
+    numSel.innerHTML = '';
+    for (let n = 1; n <= 9; n++) {
+      const o = el('option', '', '第' + n + '試合');
+      o.value = String(n);
+      numSel.appendChild(o);
+    }
+    numSel.value = String(g.game_number);
+
+    $('edit-opponent').value = g.opponent || '';
+    $('edit-category').value = g.category || '';
+    $('edit-result').value = g.result || '';
+
+    // 大会：参加している大会と「大会なし」。今付いている大会に本人が参加していなくても、そのままにはできる（11.1章）
+    const team = state.teams.filter(function (t) { return t.teamId === state.teamId; })[0];
+    const tourSel = $('edit-tournament');
+    tourSel.innerHTML = '';
+    const none = el('option', '', '（大会なし）');
+    none.value = '';
+    tourSel.appendChild(none);
+    state.myTournaments.forEach(function (t) {
+      const o = el('option', '', t.tournamentName);
+      o.value = t.tournamentId;
+      tourSel.appendChild(o);
+    });
+    if (g.tournament_id && !state.myTournaments.some(function (t) { return t.tournamentId === g.tournament_id; })) {
+      const o = el('option', '', g.tournament_name + '（今のまま）');
+      o.value = g.tournament_id;
+      tourSel.appendChild(o);
+    }
+    tourSel.value = g.tournament_id || '';
+    // ひとりの記録には大会を付けない。付けられる大会も今の大会も無いときは、欄を出さない
+    $('edit-tournament-field').hidden = (team && team.orgType === 'solo') || tourSel.options.length <= 1;
+
+    $('btn-edit-game').hidden = true;
+    $('btn-delete-game').hidden = true;
+    $('edit-game').hidden = false;
+  }
+
+  function saveEdit(e) {
+    e.preventDefault();
+    const g = selectedGame();
+    const form = $('edit-game');
+    if (!g) return;
+    NinelogUI.clearAlerts(form);
+    const data = {
+      game_id: g.game_id,
+      game_date: $('edit-date').value,
+      game_number: $('edit-number').value,
+      opponent: $('edit-opponent').value.trim(),
+      tournament_id: $('edit-tournament').value,
+      category: $('edit-category').value,
+      result: $('edit-result').value,
+    };
+    return NinelogUI.withBusy($('btn-save-game'), function () {
+      return NinelogApp.call('updateGame', data).then(function (res) {
+        closeEdit();
+        // 試合日を変えたときは、その日に移って、同じ試合を選んだままにする
+        state.selectedGameId = res.game.game_id;
+        if (res.game.game_date !== state.date) {
+          state.date = res.game.game_date;
+          calendar.setSelected(state.date);
+          updateDateControls();
+        }
+        loadMarks(calendar.month()).catch(function () { /* 印が読めなくても、直せている */ });
+        return loadDay().then(function () {
+          NinelogUI.showOk(res.unchanged ? '変わったところはありませんでした。' : '試合の情報を直しました。', $('selected'));
+        });
+      }).catch(function (err) { NinelogUI.showError(err, form); });
+    });
+  }
+
+  function openDelete() {
+    NinelogUI.clearAlerts($('selected'));
+    $('delete-confirm').hidden = false;
+    $('btn-edit-game').hidden = true;
+    $('btn-delete-game').hidden = true;
+  }
+
+  function deleteGame() {
+    const g = selectedGame();
+    if (!g) return;
+    const box = $('delete-confirm');
+    NinelogUI.clearAlerts(box);
+    return NinelogUI.withBusy($('btn-delete-yes'), function () {
+      return NinelogApp.call('deleteGame', { game_id: g.game_id }).then(function () {
+        closeEdit();
+        state.selectedGameId = '';
+        loadMarks(calendar.month()).catch(function () { /* 印が読めなくても、消せている */ });
+        return loadDay().then(function () {
+          // 選んでいた四角は消えるので、お知らせは試合の一覧の四角の一番下に出す
+          NinelogUI.showOk('試合を消しました：' + dateLabel(g.game_date) + '　' + gameTitle(g), $('pick'));
+        });
+      }).catch(function (err) { NinelogUI.showError(err, box); });
+    });
   }
 
   /** 選んだ試合の成績が、どこに反映されるか（2026-11-14 利用者が決定） */
@@ -327,6 +463,12 @@
   $('btn-today').addEventListener('click', function () { setDate(jstDate(0)); });
 
   $('btn-new').addEventListener('click', showNewGame);
+  $('btn-edit-game').addEventListener('click', openEdit);
+  $('btn-edit-cancel').addEventListener('click', closeEdit);
+  $('edit-game').addEventListener('submit', saveEdit);
+  $('btn-delete-game').addEventListener('click', openDelete);
+  $('btn-delete-no').addEventListener('click', closeEdit);
+  $('btn-delete-yes').addEventListener('click', deleteGame);
   $('btn-solo').addEventListener('click', startSolo);
   $('btn-cancel').addEventListener('click', hideNewGame);
   // 大会を選んだら、試合区分を「公式戦」にする（変えてもよい。11.7章のD）
