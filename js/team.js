@@ -35,6 +35,8 @@
   function renderTeams(teams) {
     const box = $('teams');
     box.innerHTML = '';
+    // ひとりの記録場所がまだ無い人にだけ、「ひとりで記録する」を出す（11.8章の1・10）
+    $('solo-card').hidden = teams.some(function (t) { return t.orgType === 'solo'; });
     if (teams.length === 0) {
       box.appendChild(el('p', 'nl-empty', 'まだ、どのチームにも入っていません。下の「チームに参加する」か「チームを作る」から始めてください。'));
       return;
@@ -42,8 +44,16 @@
     teams.forEach(function (t) {
       const card = el('div', 'nl-choice');
       card.appendChild(el('div', 'nl-choice__title', t.teamName));
-      card.appendChild(el('div', 'nl-choice__sub', '番号 ' + t.teamNumber));
       const badges = el('div', 'nl-badges');
+      if (t.orgType === 'solo') {
+        // ひとりの記録：番号・役割・合言葉は持たない
+        card.appendChild(el('div', 'nl-choice__sub', 'あなただけの記録場所です（ランキングはありません）'));
+        badges.appendChild(el('span', 'nl-badge', 'ひとり'));
+        card.appendChild(badges);
+        box.appendChild(card);
+        return;
+      }
+      card.appendChild(el('div', 'nl-choice__sub', '番号 ' + t.teamNumber));
       if (t.orgType === 'tournament') badges.appendChild(el('span', 'nl-badge', '大会'));
       badges.appendChild(el('span', 'nl-badge', t.role === 'owner' ? '代表者' : 'メンバー'));
       card.appendChild(badges);
@@ -154,6 +164,19 @@
         $('name-source').textContent = '自分で決めた名前です（LINEの名前を変えても、こちらは変わりません）。';
         NinelogUI.showOk('表示名を「' + res.displayName + '」に変えました。', form);
       }).catch(function (err) { NinelogUI.showError(err, form); });
+    });
+  });
+
+  $('btn-solo').addEventListener('click', function () {
+    const card = $('solo-card');
+    NinelogUI.clearAlerts(card);
+    NinelogUI.withBusy($('btn-solo'), function () {
+      return NinelogApp.call('startSolo').then(function () {
+        // 記録場所ができると、この四角は消えるので、成功のお知らせは「所属しているチーム」の四角に出す
+        return reloadTeams().then(function () {
+          NinelogUI.showOk('「ひとりの記録」を用意しました。「成績を入力」から試合を作って、成績を入れられます。', $('teams').parentNode);
+        });
+      }).catch(function (err) { NinelogUI.showError(err, card); });
     });
   });
 

@@ -47,26 +47,54 @@
 
     return NinelogApp.call('listMyTeams').then(function (res) {
       $('loading').hidden = true;
-      state.teams = res.teams.filter(function (t) { return t.orgType === 'team'; });
-      if (state.teams.length === 0) {
-        $('no-team').hidden = false;
-        return null;
-      }
-      const select = $('team');
-      state.teams.forEach(function (t) {
-        const o = el('option', '', t.teamName);
-        o.value = t.teamId;
-        select.appendChild(o);
-      });
-      let saved = '';
-      try { saved = localStorage.getItem(TEAM_KEY) || ''; } catch (e) { /* 覚えられなくても動く */ }
-      state.teamId = state.teams.some(function (t) { return t.teamId === saved; }) ? saved : state.teams[0].teamId;
-      select.value = state.teamId;
-      $('pick').hidden = false;
-      return loadTeam();
+      return showTeams(res.teams, '');
     }).catch(function (err) {
       $('loading').hidden = true;
       NinelogUI.showError(err);
+    });
+  }
+
+  /**
+   * 成績を付けられる組織（チームと、ひとりの記録。11.8章）を選択欄に並べて、試合を選ぶ画面に進む。
+   * 1つも無ければ「まだチームに入っていません」を出す。preferId を渡すと、それを選んでおく。
+   */
+  function showTeams(orgs, preferId) {
+    state.teams = orgs.filter(function (t) { return t.orgType === 'team' || t.orgType === 'solo'; });
+    if (state.teams.length === 0) {
+      $('no-team').hidden = false;
+      $('pick').hidden = true;
+      return null;
+    }
+    $('no-team').hidden = true;
+    const select = $('team');
+    select.innerHTML = '';
+    state.teams.forEach(function (t) {
+      const o = el('option', '', t.teamName); // ひとりの記録は、名前（「ひとりの記録」）で見分けられる
+      o.value = t.teamId;
+      select.appendChild(o);
+    });
+    let saved = preferId || '';
+    if (!saved) {
+      try { saved = localStorage.getItem(TEAM_KEY) || ''; } catch (e) { /* 覚えられなくても動く */ }
+    }
+    state.teamId = state.teams.some(function (t) { return t.teamId === saved; }) ? saved : state.teams[0].teamId;
+    select.value = state.teamId;
+    $('pick').hidden = false;
+    return loadTeam();
+  }
+
+  /** 「ひとりで記録する」：記録場所を作って（すでにあればそれを使って）、そのまま試合を選ぶ画面に進む（11.8章） */
+  function startSolo() {
+    const card = $('no-team');
+    NinelogUI.clearAlerts(card);
+    return NinelogUI.withBusy($('btn-solo'), function () {
+      return NinelogApp.call('startSolo').then(function (res) {
+        try { localStorage.setItem(TEAM_KEY, res.team.teamId); } catch (e) { /* 覚えられなくても動く */ }
+        return NinelogApp.call('listMyTeams').then(function (list) {
+          showTeams(list.teams, res.team.teamId);
+          NinelogUI.showOk('「ひとりの記録」を用意しました。試合を作って、成績を入れてください。', $('pick'));
+        });
+      }).catch(function (err) { NinelogUI.showError(err, card); });
     });
   }
 
@@ -265,6 +293,7 @@
   $('btn-last').addEventListener('click', function () { setDate(this.dataset.date); });
 
   $('btn-new').addEventListener('click', showNewGame);
+  $('btn-solo').addEventListener('click', startSolo);
   $('btn-cancel').addEventListener('click', hideNewGame);
   // 大会を選んだら、試合区分を「公式戦」にする（変えてもよい。11.7章のD）
   $('tournament_id').addEventListener('change', function () {
