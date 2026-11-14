@@ -9,7 +9,8 @@
     自分の成績（CLAUDE.md 6.5章・11.7章のG・11.8章）
     - C-6：年度と範囲（全チーム合計・各チーム・ひとりの記録・各大会）を選んで、打撃と投手の成績を見る
     - C-6b：記録カレンダー（●自分の成績・○チームの試合。日を押すと、その日の成績と「直す」「入力する」）
-    - C-6c：推移グラフ、C-6d：相手別・大会別の集計（このあと作る）
+    - C-6c：成績の推移グラフ（月ごとの打率・OPS・防御率。その月だけ／積み上げ）
+    - C-6d：相手別・大会別の集計（このあと作る）
   -->
 </head>
 <body>
@@ -56,6 +57,26 @@
       </section>
 
 
+      <!-- 成績の推移グラフ（C-6c。11.4章・6.5章の trend） -->
+      <section class="nl-card" id="trend-card" hidden>
+        <h2>成績の推移（月ごと）</h2>
+        <div class="nl-seg nl-seg--sm" role="group" aria-label="グラフにする成績" id="trend-kind">
+          <button type="button" class="nl-seg__btn" data-kind="avg" aria-pressed="true">打率</button>
+          <button type="button" class="nl-seg__btn" data-kind="ops" aria-pressed="false">OPS</button>
+          <button type="button" class="nl-seg__btn" data-kind="era" aria-pressed="false">防御率</button>
+        </div>
+        <div class="nl-seg nl-seg--sm" role="group" aria-label="計算のしかた" id="trend-mode">
+          <button type="button" class="nl-seg__btn" data-mode="month" aria-pressed="true">その月だけ</button>
+          <button type="button" class="nl-seg__btn" data-mode="cum" aria-pressed="false">積み上げ</button>
+        </div>
+        <div class="nl-chart"><canvas id="trend-chart" role="img" aria-label="成績の推移のグラフ"></canvas></div>
+        <p class="nl-note" id="trend-note"></p>
+        <details class="nl-fold nl-fold--sm">
+          <summary><span>数字で見る</span></summary>
+          <table class="nl-table" id="trend-table"></table>
+        </details>
+      </section>
+
       <!-- 記録カレンダー（C-6b。11.3章）：●自分の成績・○チームの試合。日を押すと、その日の試合と成績 -->
       <section class="nl-card" id="cal-card">
         <h2>記録カレンダー</h2>
@@ -71,6 +92,8 @@
   <script src="js/liff-app.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/calendar.js"></script>
+  <!-- グラフの部品 Chart.js（無料。11.0章の10）。版を決めて読み、中身が変わっていないかを integrity で確かめる -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" integrity="sha512-CQBWl4fJHWbryGE+Pc7UAxWMUMNMWzWxF4SQo9CgkJIN1kx6djDQZjh3Y8SZ1d+6I+1zze6Z7kHXO7q3UyZAWw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script src="js/mystats.js"></script>
 </body>
 </html>

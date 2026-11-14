@@ -385,3 +385,13 @@ body {
 .nl-day__title { font-size: 15px; margin: 14px 0 4px; }
 .nl-day__line { margin: 6px 0 0; font-size: 14px; line-height: 1.6; }
 #day .nl-row__meta { margin-left: 0; width: 100%; }
+
+/* 成績の推移グラフ（C-6c） */
+.nl-seg--sm { margin-bottom: 8px; }
+.nl-seg--sm .nl-seg__btn { min-height: 38px; font-size: 14px; }
+.nl-chart { position: relative; height: 220px; margin: 8px 0 4px; }
+.nl-fold--sm > summary { font-size: 14px; padding: 8px 0; }
+.nl-table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.nl-table th, .nl-table td { padding: 6px 4px; border-bottom: 1px solid var(--line); text-align: right; }
+.nl-table th:first-child, .nl-table td:first-child { text-align: left; }
+.nl-table th { color: var(--sub); font-weight: 400; font-size: 13px; }

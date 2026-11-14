@@ -5,6 +5,7 @@
  * - 打撃（率4つと13項目の合計・塁打）と投手（防御率・投球回・自責点）を出す
  * - 計算はGAS（getMyStats）が行い、画面は出すだけ（6.3章と同じ考え方）
  *
+ * C-6c：成績の推移グラフ（月ごとの打率・OPS・防御率。その月だけ／積み上げ。Chart.js）。11.4章・6.5章
  * C-6b：記録カレンダー（●自分の成績・○チームの試合。日を押すと、その日の試合と成績、「直す」「入力する」）。11.3章
  *
  * 使うGASの操作：getMyStats・getCalendar・listMyBattingRecords・listMyPitchingRecords
@@ -46,6 +47,7 @@
       shown = res;
       renderFilters(res);
       render(res);
+      renderTrend();
       syncCalendar(res);
     }, function (err) {
       if (my !== loading) return;
@@ -180,6 +182,120 @@
     s.appendChild(el('span', 'nl-stat__value', String(value === undefined || value === null ? 0 : value)));
     return s;
   }
+
+  /* ---------- 成績の推移グラフ（C-6c。11.4章・6.5章の trend） ---------- */
+
+  /**
+   * グラフにする成績。key：その月だけの値、cum：積み上げの値（GASの trend の名前）
+   * digits：目盛りの小数のけた。lowIsGood：低いほど良い（防御率）
+   */
+  const TREND_KINDS = {
+    avg: { label: '打率', key: 'avg', cum: 'cum_avg', digits: 3, games: 'batting_games' },
+    ops: { label: 'OPS', key: 'ops', cum: 'cum_ops', digits: 3, games: 'batting_games' },
+    era: { label: '防御率', key: 'era', cum: 'cum_era', digits: 2, games: 'pitching_games', lowIsGood: true },
+  };
+  const trend = { kind: 'avg', mode: 'month', chart: null };
+
+  /** 「2026-11」→「11月」。年が変わるところと最初の月は「2026年11月」 */
+  function monthLabels(rows) {
+    return rows.map(function (r, i) {
+      const y = r.month.slice(0, 4);
+      const m = Number(r.month.slice(5, 7)) + '月';
+      return (i === 0 || rows[i - 1].month.slice(0, 4) !== y) ? y + '年' + m : m;
+    });
+  }
+
+  /** 率の目盛りの文字（打率・OPSは「.300」の形、防御率は「2.50」） */
+  function rateText(value, digits) {
+    const t = value.toFixed(digits);
+    return digits === 3 && value < 1 ? t.replace(/^0/, '') : t;
+  }
+
+  function cssColor(name) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
+
+  /** いま出している成績（shown.trend）と、選んでいる成績・計算のしかたで、グラフと表を作り直す */
+  function renderTrend() {
+    const rows = (shown && shown.trend) || [];
+    $('trend-card').hidden = rows.length === 0; // 記録が1件も無ければ出さない（6.5章のB-12の細部4）
+    if (!rows.length) return;
+    const k = TREND_KINDS[trend.kind];
+    const field = trend.mode === 'cum' ? k.cum : k.key;
+    const labels = monthLabels(rows);
+    const values = rows.map(function (r) { return r[field] ? r[field].value : null; });
+
+    $('trend-note').textContent = (trend.mode === 'cum'
+      ? (shown.season === 'all' ? '最初の記録からその月までを足して計算した' : 'その年の1月からその月までを足して計算した')
+      : 'その月の試合だけで計算した') + k.label + 'です。' +
+      (trend.mode === 'month' ? '記録の無い月は、点を打ちません。' : '') +
+      (k.lowIsGood ? '防御率は低いほど良い成績です。' : '');
+
+    renderTrendTable(rows, labels, k, field);
+
+    if (typeof Chart === 'undefined') {
+      // 部品を読み込めなかった（電波が弱いなど）。数字の表は見られる
+      $('trend-note').textContent += '（グラフの部品を読み込めませんでした。「数字で見る」を開いてください）';
+      return;
+    }
+    const accent = cssColor('--accent');
+    const sub = cssColor('--sub');
+    const line = cssColor('--line');
+    const data = {
+      labels: labels,
+      datasets: [{
+        label: k.label, data: values, borderColor: accent, backgroundColor: accent,
+        pointRadius: 4, pointHoverRadius: 6, borderWidth: 2, spanGaps: false, tension: 0,
+      }],
+    };
+    const options = {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: function (c) { return k.label + ' ' + rows[c.dataIndex][field].text; } } },
+      },
+      scales: {
+        x: { ticks: { color: sub, maxRotation: 0, autoSkip: true }, grid: { display: false } },
+        y: {
+          beginAtZero: true, ticks: { color: sub, maxTicksLimit: 6, callback: function (v) { return rateText(v, k.digits); } },
+          grid: { color: line },
+        },
+      },
+    };
+    if (trend.chart) trend.chart.destroy();
+    trend.chart = new Chart($('trend-chart'), { type: 'line', data: data, options: options });
+  }
+
+  /** 「数字で見る」の表（月・その値・試合数） */
+  function renderTrendTable(rows, labels, k, field) {
+    const table = $('trend-table');
+    table.innerHTML = '';
+    const head = el('tr');
+    ['月', k.label + (trend.mode === 'cum' ? '（積み上げ）' : ''), k.games === 'batting_games' ? '打撃の試合' : '投手の試合']
+      .forEach(function (t) { head.appendChild(el('th', '', t)); });
+    table.appendChild(head);
+    rows.forEach(function (r, i) {
+      const tr = el('tr');
+      tr.appendChild(el('td', '', labels[i]));
+      tr.appendChild(el('td', '', r[field] ? r[field].text : '-'));
+      tr.appendChild(el('td', '', String(r[k.games] || 0)));
+      table.appendChild(tr);
+    });
+  }
+
+  /** 切り替えボタン（成績の種類・計算のしかた） */
+  function bindSeg(id, attr, onPick) {
+    const box = $(id);
+    box.querySelectorAll('button').forEach(function (b) {
+      b.addEventListener('click', function () {
+        box.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+        onPick(b.getAttribute(attr));
+        renderTrend();
+      });
+    });
+  }
+  bindSeg('trend-kind', 'data-kind', function (v) { trend.kind = v; });
+  bindSeg('trend-mode', 'data-mode', function (v) { trend.mode = v; });
 
   /* ---------- 記録カレンダー（C-6b。11.3章・11.0章の16） ---------- */
 
