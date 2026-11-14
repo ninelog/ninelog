@@ -419,3 +419,6 @@ body {
 .nl-rank__value { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .nl-rank__divider { font-size: 13px; color: var(--sub); padding: 14px 6px 6px; border-top: 1px solid var(--line); }
 .nl-rank__remain { width: 100%; font-size: 12px; font-weight: 700; color: var(--warn); }
+
+/* チーム全体の成績（C-7b） */
+#view { margin-bottom: 12px; background: var(--card); }

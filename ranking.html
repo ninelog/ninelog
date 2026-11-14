@@ -9,7 +9,8 @@
     ランキング（CLAUDE.md 6.2〜6.4章・11.8章）
     - C-7：チームと年度を選び、8部門を切り替えて、チーム内ランキングを見る
     - C-8：規定未達の人に「あと○打席」「あと○回」を出す
-    - C-7b：チーム全体の成績、C-7c：共有ボタン、C-7d：大会のランキング（このあと作る）
+    - C-7b：チーム全体の成績（勝敗・勝率・チーム打率・防御率・相手別などの集計）
+    - C-7c：共有ボタン、C-7d：大会のランキング（このあと作る）
   -->
 </head>
 <body>
@@ -41,12 +42,43 @@
         <p class="nl-note" id="qualify-note"></p>
       </section>
 
+      <!-- 何を見るか：ランキングか、チーム全体の成績か（C-7b。11.0章の12） -->
+      <div class="nl-seg" role="group" aria-label="見るもの" id="view">
+        <button type="button" class="nl-seg__btn" data-view="ranking" aria-pressed="true">ランキング</button>
+        <button type="button" class="nl-seg__btn" data-view="team" aria-pressed="false">チームの成績</button>
+      </div>
+
       <!-- ランキング -->
       <section class="nl-card" id="ranking-card">
         <div class="nl-cats" id="cats" role="group" aria-label="部門"></div>
         <p class="nl-note" id="cat-note"></p>
         <ol class="nl-rank" id="rows"></ol>
       </section>
+
+      <!-- チーム全体の成績（C-7b。11.4章・B-14） -->
+      <div id="team-view" hidden>
+        <section class="nl-card" id="ts-empty" hidden>
+          <p class="nl-empty" id="ts-empty-text"></p>
+        </section>
+        <section class="nl-card" id="ts-record-card">
+          <h2>勝敗 <span class="nl-h2__sub" id="ts-games"></span></h2>
+          <div class="nl-tiles nl-tiles--4" id="ts-record"></div>
+          <p class="nl-note" id="ts-record-note"></p>
+        </section>
+        <section class="nl-card" id="ts-batting-card">
+          <h2>チームの打撃 <span class="nl-h2__sub" id="ts-batting-sub"></span></h2>
+          <div class="nl-tiles nl-tiles--4" id="ts-batting-rates"></div>
+          <div class="nl-stats" id="ts-batting-counts"></div>
+        </section>
+        <section class="nl-card" id="ts-pitching-card">
+          <h2>チームの投手 <span class="nl-h2__sub" id="ts-pitching-sub"></span></h2>
+          <div class="nl-tiles" id="ts-pitching-rates"></div>
+          <p class="nl-note">防御率 ＝ 自責点 × 7 ÷ 投球回（7回制のため）。</p>
+        </section>
+        <!-- 相手別・大会別・区分別（勝敗の表も出す。中身は js/breakdown.js が作る） -->
+        <section class="nl-card" id="ts-bd-card" hidden></section>
+        <p class="nl-note">チームの成績は、チームの全員の成績を足してから計算しています（退会した人の成績も入ります）。</p>
+      </div>
     </div>
   </main>
 
@@ -54,6 +86,7 @@
   <script src="js/config.js"></script>
   <script src="js/liff-app.js"></script>
   <script src="js/ui.js"></script>
+  <script src="js/breakdown.js"></script>
   <script src="js/ranking.js"></script>
 </body>
 </html>

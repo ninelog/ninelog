@@ -5,7 +5,9 @@
  * - 順位・規定の判定はGAS（getTeamRanking）が行い、画面は並べて出すだけ（6.3章）
  * - 8部門はまとめて1回で届くので、部門の切り替えではGASに聞き直さない（B-13の細部1）
  *
- * 使うGASの操作：listMyTeams・getTeamRanking
+ * - C-7b：「チームの成績」に切り替えると、チーム全体の成績（getTeamStats）を出す。11.4章・B-14
+ *
+ * 使うGASの操作：listMyTeams・getTeamRanking・getTeamStats
  */
 (function () {
   const $ = function (id) { return document.getElementById(id); };
@@ -15,7 +17,8 @@
   /** 部門の並び（6.4章の表の順。GASの部門の名前と同じ） */
   const CATEGORY_ORDER = ['avg', 'obp', 'ops', 'era', 'hits', 'home_runs', 'rbis', 'stolen_bases'];
 
-  const state = { category: 'avg', shown: null, loading: 0 };
+  const state = { category: 'avg', shown: null, loading: 0, view: 'ranking', stats: {}, statsLoading: 0 };
+  const teamBreakdown = NinelogBreakdown.create($('ts-bd-card'), { withRecord: true }); // 相手別など（C-7b）
 
   function start() {
     return NinelogApp.call('listMyTeams').then(function (res) {
@@ -51,6 +54,7 @@
       renderFilters(res);
       renderCats();
       renderRows();
+      if (state.view === 'team') loadTeamStats();
     }, function (err) {
       if (my !== state.loading) return;
       $('content').classList.remove('is-loading');
@@ -168,6 +172,113 @@
     li.appendChild(el('span', 'nl-rank__value', r.text));
     return li;
   }
+
+  /* ---------- チーム全体の成績（C-7b。11.4章・B-14） ---------- */
+
+  /** 打撃の数の並び（自分の成績と同じ。チームでは「のべ」の数） */
+  const BATTING_COUNTS = [
+    ['plate_appearances', '打席'], ['at_bats', '打数'], ['hits', '安打'],
+    ['doubles', '二塁打'], ['triples', '三塁打'], ['home_runs', '本塁打'],
+    ['rbis', '打点'], ['walks', '四球'], ['hbp', '死球'],
+    ['sacrifice_bunts', '犠打'], ['sacrifice_flies', '犠飛'], ['strikeouts', '三振'],
+    ['stolen_bases', '盗塁'], ['total_bases', '塁打'],
+  ];
+
+  function setView(view) {
+    state.view = view;
+    $('view').querySelectorAll('button').forEach(function (b) {
+      b.setAttribute('aria-pressed', b.getAttribute('data-view') === view ? 'true' : 'false');
+    });
+    $('ranking-card').hidden = view !== 'ranking';
+    $('team-view').hidden = view !== 'team';
+    if (view === 'team') loadTeamStats();
+  }
+
+  /**
+   * いま選んでいるチームと年度の、チーム全体の成績を読む。
+   * 一度読んだものは覚えておき、同じチーム・年度なら聞き直さない（画面を開き直すと読み直す）。
+   */
+  function loadTeamStats() {
+    const res = state.shown;
+    if (!res) return;
+    const key = res.teamId + '|' + res.season;
+    if (state.stats[key]) { renderTeamStats(state.stats[key]); return; }
+    const my = ++state.statsLoading;
+    $('team-view').classList.add('is-loading');
+    NinelogUI.clearAlerts($('filters'));
+    NinelogApp.call('getTeamStats', { team_id: res.teamId, season: res.season }).then(function (stats) {
+      if (my !== state.statsLoading) return;
+      $('team-view').classList.remove('is-loading');
+      state.stats[key] = stats;
+      renderTeamStats(stats);
+    }).catch(function (err) {
+      if (my !== state.statsLoading) return;
+      $('team-view').classList.remove('is-loading');
+      NinelogUI.showError(err, $('filters'));
+    });
+  }
+
+  function tile(label, value) {
+    const t = el('div', 'nl-tile');
+    t.appendChild(el('div', 'nl-tile__label', label));
+    t.appendChild(el('div', 'nl-tile__value', value));
+    return t;
+  }
+  function stat(label, value) {
+    const s = el('div', 'nl-stat');
+    s.appendChild(el('span', 'nl-stat__label', label));
+    s.appendChild(el('span', 'nl-stat__value', String(value === undefined || value === null ? 0 : value)));
+    return s;
+  }
+
+  function renderTeamStats(ts) {
+    const none = ts.games === 0;
+    $('ts-empty').hidden = !none;
+    $('ts-empty-text').textContent = (ts.season === 'all' ? '' : ts.season + '年の') + '「' + ts.teamName + '」の試合は、まだありません。';
+    $('ts-record-card').hidden = none;
+    const b = ts.batting;
+    const p = ts.pitching;
+    $('ts-batting-card').hidden = none || !b.appearances;
+    $('ts-pitching-card').hidden = none || !p.appearances;
+    teamBreakdown.update(none ? {} : ts.breakdowns);
+    if (none) return;
+
+    // 勝敗（B-14の細部1・2）
+    $('ts-games').textContent = ts.games + '試合';
+    const rec = $('ts-record');
+    rec.innerHTML = '';
+    rec.appendChild(tile('勝ち', String(ts.record.win)));
+    rec.appendChild(tile('負け', String(ts.record.lose)));
+    rec.appendChild(tile('引き分け', String(ts.record.draw)));
+    rec.appendChild(tile('勝率', ts.winning_pct.text));
+    $('ts-record-note').textContent = '勝率 ＝ 勝ち ÷（勝ち＋負け）。' +
+      (ts.record.unknown ? '勝敗が未入力の試合が' + ts.record.unknown + '試合あります（試合数には入り、勝率には入りません）。' : '');
+
+    // チームの打撃（全員の合計から計算。B-14の細部3）
+    if (b.appearances) {
+      $('ts-batting-sub').textContent = 'のべ' + b.appearances + '人';
+      const rates = $('ts-batting-rates');
+      rates.innerHTML = '';
+      [['avg', '打率'], ['obp', '出塁率'], ['slg', '長打率'], ['ops', 'OPS']].forEach(function (r) {
+        rates.appendChild(tile(r[1], b[r[0]].text));
+      });
+      const counts = $('ts-batting-counts');
+      counts.innerHTML = '';
+      BATTING_COUNTS.forEach(function (c) { counts.appendChild(stat(c[1], b[c[0]])); });
+    }
+    if (p.appearances) {
+      $('ts-pitching-sub').textContent = 'のべ' + p.appearances + '人';
+      const rates = $('ts-pitching-rates');
+      rates.innerHTML = '';
+      rates.appendChild(tile('防御率', p.era.text));
+      rates.appendChild(tile('投球回', p.innings_text));
+      rates.appendChild(tile('自責点', String(p.earned_runs)));
+    }
+  }
+
+  $('view').querySelectorAll('button').forEach(function (b) {
+    b.addEventListener('click', function () { setView(b.getAttribute('data-view')); });
+  });
 
   $('team').addEventListener('change', function () { reload({ team_id: this.value }); });
   $('season').addEventListener('change', function () { reload({ team_id: $('team').value, season: this.value }); });
