@@ -504,3 +504,13 @@ body.nl-modal-open { overflow: hidden; }
 .nl-terms__enact { text-align: right; color: var(--sub); margin-top: 20px; }
 .nl-terms-link { text-align: center; margin-top: 8px; }
 .nl-terms-link a { color: var(--sub); }
+
+/* ---------- 前回の画面（新しい内容が届くまで出しておく。B-24 案A） ---------- */
+.nl-snapshot__note {
+  position: sticky; top: calc(var(--header-h) + 44px); z-index: 5;
+  display: flex; align-items: center; gap: 8px; margin: 0 0 12px; padding: 10px 12px;
+  border-radius: 10px; background: var(--warn-soft); border: 1px solid var(--warn); color: var(--text);
+  font-size: 13px; line-height: 1.5;
+}
+.nl-snapshot__body { opacity: .55; pointer-events: none; user-select: none; -webkit-user-select: none; }
+.nl-snapshot__chart { background: var(--line); border-radius: 8px; opacity: .4; }

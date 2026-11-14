@@ -179,7 +179,12 @@ function withLock_(fn) {
   try {
     return fn();
   } finally {
-    measure_('lockWait', function () { lock.releaseLock(); });
+    try {
+      // 書き込んだら、確定させてからデータの版を新しくする（ほかの要求が、古い中身を使わないように。B-24）
+      commitWrites_();
+    } finally {
+      measure_('lockWait', function () { lock.releaseLock(); });
+    }
   }
 }
 

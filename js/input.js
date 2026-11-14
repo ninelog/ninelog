@@ -113,6 +113,13 @@
     });
     updateDateControls();
 
+    // 前に選んだチームのカレンダー・試合・自分の成績を、所属の一覧と同時に頼んでおく（B-24。2026-11-15）
+    let preTeam = link.team;
+    if (!preTeam) {
+      try { preTeam = localStorage.getItem(TEAM_KEY) || ''; } catch (e) { preTeam = ''; }
+    }
+    if (preTeam) prefetchTeam(preTeam);
+
     return NinelogApp.call('listMyTeams').then(function (res) {
       $('loading').hidden = true;
       return Promise.resolve(showTeams(res.teams, link.team)).then(function () {
@@ -154,7 +161,33 @@
     state.teamId = state.teams.some(function (t) { return t.teamId === saved; }) ? saved : state.teams[0].teamId;
     select.value = state.teamId;
     $('pick').hidden = false;
-    return loadTeam();
+    const loading = loadTeam();
+    prefetched = null; // 使わなかった分は捨てる（別のチームを選んだときなど）
+    return loading;
+  }
+
+  /**
+   * 前もって頼んでおいた読み込み（B-24）。所属の一覧（listMyTeams）と同じときに頼むので、
+   * GASへの問い合わせが1回にまとまり、1往復減る。選んだチーム・月・日が同じときだけ使う。
+   * 退会したチームなどで断られても、使わないので何もしない。
+   */
+  let prefetched = null;
+  function prefetchTeam(teamId) {
+    const quiet = function (p) { p.catch(function () { /* 使うときに、そちらでエラーを出す */ }); return p; };
+    const month = calendar.month();
+    prefetched = {
+      teamId: teamId,
+      marks: { key: month, promise: quiet(NinelogApp.call('getCalendar', { month: month, team_id: teamId })) },
+      day: { key: state.date, promise: quiet(NinelogApp.call('listTeamGames', { team_id: teamId, game_date: state.date })) },
+      batting: { key: '', promise: quiet(NinelogApp.call('listMyBattingRecords', { team_id: teamId })) },
+      pitching: { key: '', promise: quiet(NinelogApp.call('listMyPitchingRecords', { team_id: teamId })) },
+    };
+  }
+  function takePrefetched(name, teamId, key) {
+    if (!prefetched || prefetched.teamId !== teamId || !prefetched[name] || prefetched[name].key !== key) return null;
+    const p = prefetched[name].promise;
+    prefetched[name] = null;
+    return p;
   }
 
   /** 「ひとりで記録する」：記録場所を作って（すでにあればそれを使って）、そのまま試合を選ぶ画面に進む（11.8章） */
@@ -184,8 +217,8 @@
   function loadMine() {
     const teamId = state.teamId;
     return Promise.all([
-      NinelogApp.call('listMyBattingRecords', { team_id: teamId }),
-      NinelogApp.call('listMyPitchingRecords', { team_id: teamId }),
+      takePrefetched('batting', teamId, '') || NinelogApp.call('listMyBattingRecords', { team_id: teamId }),
+      takePrefetched('pitching', teamId, '') || NinelogApp.call('listMyPitchingRecords', { team_id: teamId }),
     ]).then(function (res) {
       if (teamId !== state.teamId) return; // 読んでいる間にチームが切り替わったら使わない
       const byGame = function (records) {
@@ -205,7 +238,8 @@
    */
   function loadMarks(month) {
     const teamId = state.teamId;
-    return NinelogApp.call('getCalendar', { month: month, team_id: teamId }).then(function (res) {
+    const request = takePrefetched('marks', teamId, month) || NinelogApp.call('getCalendar', { month: month, team_id: teamId });
+    return request.then(function (res) {
       if (teamId !== state.teamId || month !== calendar.month()) return; // 読んでいる間に切り替わったら使わない
       const marks = {};
       res.days.forEach(function (d) { marks[d.date] = { game: d.has_team_game, mine: d.has_my_record }; });
@@ -226,7 +260,8 @@
     box.innerHTML = '';
     box.appendChild(NinelogUI.loadingEl('試合を読み込んでいます…'));
     hideNewGame();
-    return NinelogApp.call('listTeamGames', { team_id: state.teamId, game_date: state.date }).then(function (res) {
+    const request = takePrefetched('day', state.teamId, state.date) || NinelogApp.call('listTeamGames', { team_id: state.teamId, game_date: state.date });
+    return request.then(function (res) {
       state.games = res.games.slice().sort(function (a, b) { return a.game_number - b.game_number; });
       state.nextGameNumber = res.nextGameNumber || 1;
       state.myTournaments = res.myTournaments || [];

@@ -335,6 +335,10 @@
     });
     renderDay();
     loadMine().catch(function (err) { NinelogUI.showError(err, $('cal-card')); });
+    // 最初の範囲は「全チーム合計」なので、カレンダー（全チーム）も成績と同時に頼む。
+    // 成績と1回の問い合わせにまとまり、GASとのやりとりが1往復減る（B-24。2026-11-15）
+    cal.teamId = '';
+    loadCalendar(cal.view.month()).catch(function (err) { NinelogUI.showError(err, $('cal-card')); });
   }
 
   /**
@@ -587,5 +591,5 @@
   $('season').addEventListener('change', reload);
   $('scope').addEventListener('change', reload);
 
-  NinelogUI.boot('mystats', '自分の成績', start);
+  NinelogUI.boot('mystats', '自分の成績', start, { snapshot: true }); // 前回の画面をすぐ出す（B-24 案A）
 })();

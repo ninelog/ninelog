@@ -12,6 +12,16 @@
  *      書き込んだかもしれない）は、覚えた内容を捨てて、次に読むときに読み直す。
  * ② 1行を書き換えるときは、変わった項目ごとではなく、行ごとにまとめて1回で書く。
  * ③ 行を消すときは、続いている行をまとめて1回で消す。
+ *
+ * B-24（2026-11-15。読み込みを速くする案B）：
+ * ④ 読んだシートの中身を、GASの中（CacheService）に短い間（SHEET_CACHE_SECONDS）覚え、ほかの要求でも使い回す。
+ *    - 覚えた中身には「データの版」（スクリプトプロパティ DATA_VERSION）の印を付ける。
+ *    - 書き込み（行を足す・書き換える・消す）をしたら、順番待ち（withLock_）を終える前に、書き込みを確定させて
+ *      （SpreadsheetApp.flush）から、版を新しくする（commitWrites_）。版が変わると、前の版で覚えた中身は使われない。
+ *      → 保存・直す・消すのあとは、必ずシートを読み直した新しい数字になる。
+ *    - 版を新しくするのは「確定させたあと」。逆にすると、確定する前の古い中身を新しい版で覚えてしまうため。
+ *    - シートを手で直したときは、最長 SHEET_CACHE_SECONDS 秒たつと反映される（すぐ反映したいときは clearSheetCache を実行）。
+ *    - 覚えられない・読めないときは、今までどおりシートを読む。
  */
 
 /** シートごとに、必ずある見出しの一覧（CLAUDE.md 第4章の表と同じ） */
@@ -35,20 +45,141 @@ const SHEET_COLUMNS = {
 /** シートの行が足りなくなったときに、まとめて足す行の数 */
 const SHEET_GROW_ROWS = 100;
 
+/** GASの中にシートの中身を覚えておく時間（秒）。シートを手で直したときに、反映されるまでの最長の時間でもある */
+const SHEET_CACHE_SECONDS = 600;
+/** 覚えるときに分ける大きさ（文字数）。CacheService は1つの値が100KBまでなので、日本語（1文字3バイト）でも収まる大きさ */
+const SHEET_CACHE_CHUNK = 30000;
+
 /**
  * 1回の処理の間だけ覚えておく内容。
  * sheets：シートの名前 → シート（見つけたシートを毎回探し直さない）
  * tables：シートの名前 → { header: 見出しの一覧, records: 行の一覧, maxRows: シートの行の数（書くときに調べる） }
  */
-const sheetMemory_ = { sheets: {}, tables: {} };
+const sheetMemory_ = { sheets: {}, tables: {}, version: null, dirty: false };
 
-/** 覚えた内容を捨てる（name を省くと全部）。順番待ちを始めたときなどに使う */
+/**
+ * 覚えた内容を捨てる（name を省くと全部）。順番待ちを始めたときなどに使う。
+ * 全部捨てるときは、データの版も読み直す（ほかの人が書き込んで、版が変わったかもしれないため）。
+ */
 function forgetSheets_(name) {
   if (name) {
     delete sheetMemory_.tables[name];
   } else {
     sheetMemory_.tables = {};
+    sheetMemory_.version = null;
   }
+}
+
+/* ---------- ④ GASの中に覚える（B-24） ---------- */
+
+/** いまのデータの版（1回の処理の間は覚えておく。読めなければ空＝覚えた中身を使わない） */
+function dataVersion_() {
+  if (sheetMemory_.version === null) {
+    let v = null;
+    try {
+      v = measure_('props', function () { return PropertiesService.getScriptProperties().getProperty('DATA_VERSION'); });
+    } catch (e) { /* そのまま */ }
+    sheetMemory_.version = v || '';
+  }
+  return sheetMemory_.version;
+}
+
+/**
+ * 書き込みを確定させてから、データの版を新しくする（書き込みが無ければ何もしない）。
+ * withLock_ の終わり（順番待ちを終える前）に呼ぶ。
+ */
+function commitWrites_() {
+  if (!sheetMemory_.dirty) return;
+  measure_('flush', function () { SpreadsheetApp.flush(); });
+  const v = Utilities.getUuid();
+  measure_('props', function () { PropertiesService.getScriptProperties().setProperty('DATA_VERSION', v); });
+  sheetMemory_.version = v;
+  sheetMemory_.dirty = false;
+}
+
+/**
+ * 覚えた中身をすべて使わないようにする（データの版を新しくする）。
+ * シートを手で直して、すぐに画面に反映したいときに、GASの編集画面から実行する。
+ */
+function clearSheetCache() {
+  withLock_(function () { sheetMemory_.dirty = true; });
+  Logger.log('GASの中に覚えたシートの中身を、すべて使わないようにしました。次に開いたときは、シートを読み直します。');
+}
+
+function sheetCacheKey_(version, name) {
+  return 'st:' + version + ':' + name;
+}
+
+/** 行の一覧を文字にする（日時は {"$d": ミリ秒} の形にして、読み戻すときに日時に戻す） */
+function encodeTable_(table) {
+  return JSON.stringify({ header: table.header, records: table.records }, function (key, value) {
+    const raw = this[key];
+    if (Object.prototype.toString.call(raw) === '[object Date]') return { $d: raw.getTime() };
+    return value;
+  });
+}
+
+function decodeTable_(text) {
+  return JSON.parse(text, function (key, value) {
+    if (value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 1 && typeof value.$d === 'number') {
+      return new Date(value.$d);
+    }
+    return value;
+  });
+}
+
+/** 覚えた中身を取り出す（無ければ null） */
+function readTableCache_(name) {
+  const version = dataVersion_();
+  if (!version) return null;
+  try {
+    return measure_('cacheGet', function () {
+      const cache = CacheService.getScriptCache();
+      const key = sheetCacheKey_(version, name);
+      const count = Number(cache.get(key));
+      if (!count) return null;
+      const keys = [];
+      for (let i = 0; i < count; i++) keys.push(key + ':' + i);
+      const parts = cache.getAll(keys);
+      let text = '';
+      for (let i = 0; i < count; i++) {
+        if (typeof parts[keys[i]] !== 'string') return null; // 一部が消えていたら使わない
+        text += parts[keys[i]];
+      }
+      return decodeTable_(text);
+    });
+  } catch (e) {
+    return null;
+  }
+}
+
+/** 読んだ中身を覚える（覚えられなくても、そのまま動く） */
+function writeTableCache_(name, table) {
+  const version = dataVersion_();
+  if (!version) return;
+  try {
+    measure_('cachePut', function () {
+      const text = encodeTable_(table);
+      const key = sheetCacheKey_(version, name);
+      const values = {};
+      let count = 0;
+      for (let i = 0; i < text.length; i += SHEET_CACHE_CHUNK) {
+        values[key + ':' + count] = text.slice(i, i + SHEET_CACHE_CHUNK);
+        count++;
+      }
+      values[key] = String(count);
+      CacheService.getScriptCache().putAll(values, SHEET_CACHE_SECONDS);
+    });
+  } catch (e) { /* 覚えられなくても動く */ }
+}
+
+/** 見出しに、設計どおりの列がそろっているか */
+function checkHeader_(name, header) {
+  (SHEET_COLUMNS[name] || []).forEach(function (col) {
+    if (header.indexOf(col) === -1) {
+      throw new AppError(APP_ERROR.INTERNAL, 'シート「' + name + '」に見出し「' + col + '」がありません');
+    }
+  });
 }
 
 /** シートを取り出す。見つからなければエラー */
@@ -76,14 +207,19 @@ function loadTable_(name) {
   const remembered = sheetMemory_.tables[name];
   if (remembered) return remembered;
 
+  // ほかの要求で覚えた中身（いまの版のもの）があれば、シートを読まずに使う（B-24）
+  // この処理ですでに書き込んだあと（例：行を消して読み直すとき）は、覚えた中身が古いので使わない
+  const cached = sheetMemory_.dirty ? null : readTableCache_(name);
+  if (cached) {
+    checkHeader_(name, cached.header);
+    sheetMemory_.tables[name] = cached;
+    return cached;
+  }
+
   const sheetForRead = getSheet_(name);
   const values = measure_('read', function () { return sheetForRead.getDataRange().getValues(); });
   const header = values.length > 0 ? values[0].map(function (h) { return String(h).trim(); }) : [];
-  (SHEET_COLUMNS[name] || []).forEach(function (col) {
-    if (header.indexOf(col) === -1) {
-      throw new AppError(APP_ERROR.INTERNAL, 'シート「' + name + '」に見出し「' + col + '」がありません');
-    }
-  });
+  checkHeader_(name, header);
   const records = [];
   for (let i = 1; i < values.length; i++) {
     const row = values[i];
@@ -95,6 +231,8 @@ function loadTable_(name) {
   }
   const table = { header: header, records: records };
   sheetMemory_.tables[name] = table;
+  // この処理で書き込んだあと（版を新しくする前）に読んだ中身は覚えない（次の要求が、新しい版で覚え直す）
+  if (!sheetMemory_.dirty) writeTableCache_(name, table);
   return table;
 }
 
@@ -146,6 +284,7 @@ function appendRecord_(name, record) {
     }
   });
 
+  sheetMemory_.dirty = true; // 順番待ちの終わりに、データの版を新しくする（B-24）
   measure_('write', function () {
     const range = sheet.getRange(row, 1, 1, header.length);
     range.setNumberFormats([values.map(cellFormat_)]);
@@ -184,6 +323,7 @@ function updateRecord_(name, row, changes) {
     const value = Object.prototype.hasOwnProperty.call(changes, col) ? changes[col] : current[col];
     return value === null || value === undefined ? '' : value;
   });
+  sheetMemory_.dirty = true;
   measure_('write', function () {
     const range = sheet.getRange(row, 1, 1, header.length);
     range.setNumberFormats([values.map(cellFormat_)]);
@@ -200,6 +340,7 @@ function updateRecord_(name, row, changes) {
  */
 function deleteRows_(name, rows) {
   if (rows.length === 0) return;
+  sheetMemory_.dirty = true;
   const sheet = getSheet_(name);
   const sorted = rows.slice().sort(function (a, b) { return b - a; }); // 大きい順
   let i = 0;

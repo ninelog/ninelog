@@ -40,6 +40,8 @@ function testAllNames_() {
     'testDelete',          // B-21 チーム・大会を消す、ひとりの記録から移す
     'testBatch',           // B-22 本人確認の結果を覚える、見るだけの操作をまとめる
     'testWebhook',         // B-23 公式LINEのトークへの返信
+    'testSheetCache',      // B-24 GASの中にシートの中身を覚える
+    'testPurge',           // B-25 公開前にテストのデータを消す仕組み
   ];
 }
 

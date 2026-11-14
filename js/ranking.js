@@ -30,7 +30,34 @@
   }
   const teamBreakdown = NinelogBreakdown.create($('ts-bd-card'), { withRecord: true }); // 相手別など（C-7b）
 
+  /** 前に見たチーム・大会（この端末で覚えたもの。「team:ID」「tour:ID」の形） */
+  function savedKey() {
+    let saved = '';
+    try { saved = localStorage.getItem(TEAM_KEY) || ''; } catch (e) { /* 覚えられなくても動く */ }
+    if (saved && saved.indexOf(':') === -1) saved = 'team:' + saved; // 前の形（IDだけ）
+    return saved;
+  }
+
+  /**
+   * 前に見たチーム・大会のランキングを、所属の一覧と同時に頼んでおく（B-24。2026-11-15）。
+   * 1回の問い合わせにまとまり、GASとのやりとりが1往復減る。今も所属しているときだけ使う（使わなければ捨てる）。
+   */
+  let prefetched = null;
+  function takePrefetched(data) {
+    const p = prefetched;
+    prefetched = null;
+    if (p && JSON.stringify(p.data) === JSON.stringify(data)) return p.promise;
+    return null;
+  }
+
   function start() {
+    const saved = savedKey();
+    if (saved) {
+      const data = keyToData(saved);
+      const promise = NinelogApp.call(data.tournament_id ? 'getTournamentRanking' : 'getTeamRanking', data);
+      promise.catch(function () { /* 退会したチームなどで断られても、ここでは何もしない（使わないため） */ });
+      prefetched = { data: data, promise: promise };
+    }
     return NinelogApp.call('listMyTeams').then(function (res) {
       // ランキングがあるのはチームと大会（ひとりの記録には無い：11.8章の7）。チームを先、大会をあとに並べる
       const pick = function (type, prefix) {
@@ -39,13 +66,11 @@
       };
       state.orgs = pick('team', 'team:').concat(pick('tournament', 'tour:'));
       if (!state.orgs.length) {
+        prefetched = null;
         $('loading').hidden = true;
         $('no-team').hidden = false;
         return null;
       }
-      let saved = '';
-      try { saved = localStorage.getItem(TEAM_KEY) || ''; } catch (e) { /* 覚えられなくても動く */ }
-      if (saved && saved.indexOf(':') === -1) saved = 'team:' + saved; // 前の形（IDだけ）
       const key = state.orgs.some(function (o) { return o.key === saved; }) ? saved : state.orgs[0].key;
       return load(keyToData(key)).then(function () {
         $('loading').hidden = true;
@@ -62,7 +87,8 @@
     const my = ++state.loading;
     const isTour = Boolean(data.tournament_id);
     const done = NinelogUI.busy($('content')); // 読み込み中の表示（くるくる）
-    return NinelogApp.call(isTour ? 'getTournamentRanking' : 'getTeamRanking', data).then(function (res) {
+    const request = takePrefetched(data) || NinelogApp.call(isTour ? 'getTournamentRanking' : 'getTeamRanking', data);
+    return request.then(function (res) {
       done();
       if (my !== state.loading) return;
       // チームと大会の返事を、画面で同じように扱えるようにそろえる
@@ -456,5 +482,5 @@
     reload(Object.assign(keyToData($('team').value), { season: this.value }));
   });
 
-  NinelogUI.boot('ranking', 'ランキング', start);
+  NinelogUI.boot('ranking', 'ランキング', start, { snapshot: true }); // 前回の画面をすぐ出す（B-24 案A）
 })();

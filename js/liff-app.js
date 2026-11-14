@@ -65,8 +65,18 @@ const NinelogApp = (function () {
         if (!flushTimer) flushTimer = setTimeout(flush, 0);
       });
     }
-    return callOne(action, data);
+    const result = callOne(action, data);
+    if (FORGET_SNAPSHOT_AFTER.hasOwnProperty(action)) {
+      // チーム・大会を退会した・消したときは、このスマホに覚えた「前回の画面」を捨てる（B-24 案A）
+      result.then(function () {
+        if (window.NinelogUI && NinelogUI.clearSnapshots) NinelogUI.clearSnapshots();
+      }, function () { /* 失敗したときは、呼んだ側がエラーを出す */ });
+    }
+    return result;
   }
+
+  /** 成功したら、覚えた「前回の画面」を捨てる操作 */
+  const FORGET_SNAPSHOT_AFTER = { leaveTeam: 1, deleteTeam: 1 };
 
   /** 1つの操作を送る。混み合っている（BUSY）ときは、1.5秒待って1回だけやり直す（3.5章） */
   function callOne(action, data, label) {
