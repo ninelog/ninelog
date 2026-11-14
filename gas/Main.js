@@ -58,6 +58,7 @@ function getActions_() {
     deleteTeam: { handler: handleDeleteTeam_, write: true },                  // B-21
     listSoloMoveTargets: { handler: handleListSoloMoveTargets_, write: false }, // B-21
     moveSoloRecords: { handler: handleMoveSoloRecords_, write: true },        // B-21
+    batch: { handler: handleBatch_, write: false },                           // B-22
   };
 }
 
@@ -122,6 +123,43 @@ function dispatch_(request, user) {
     });
   }
   return action.handler(request.data, user);
+}
+
+/** 1回の batch でまとめられる操作の数（B-22） */
+const BATCH_MAX = 10;
+
+/**
+ * 操作：batch（B-22。11.10章）
+ * 画面からの、見るだけの操作をまとめて1回の問い合わせで行う（本人確認と自動登録は1回で済み、
+ * 読んだシートの内容も1回の処理の間は使い回せるので速い）。
+ * data: { requests: [{ action, data }] }（1〜10件）
+ * 返事：{ results: [{ ok: true, data } または { ok: false, error }] }（requests と同じ順）
+ * - まとめられるのは、書き込まない操作だけ（write: true の操作と batch は、その1件を BAD_REQUEST で断る）
+ * - それぞれの操作の権限の決まりは、1件ずつ呼んだときとまったく同じ（同じ担当の関数を、同じ本人で呼ぶ）
+ */
+function handleBatch_(data, user) {
+  const requests = data && Array.isArray(data.requests) ? data.requests : null;
+  if (!requests || requests.length === 0 || requests.length > BATCH_MAX) {
+    throw new AppError(APP_ERROR.BAD_REQUEST, 'まとめる操作は1〜' + BATCH_MAX + '件にしてください');
+  }
+  const actions = getActions_();
+  return {
+    results: requests.map(function (req) {
+      try {
+        const name = req && req.action;
+        if (typeof name !== 'string' || !Object.prototype.hasOwnProperty.call(actions, name)) {
+          throw new AppError(APP_ERROR.UNKNOWN_ACTION, '知らない操作です：' + name);
+        }
+        if (name === 'batch' || actions[name].write) {
+          throw new AppError(APP_ERROR.BAD_REQUEST, '書き込む操作は、まとめられません：' + name);
+        }
+        const sub = req.data && typeof req.data === 'object' && !Array.isArray(req.data) ? req.data : {};
+        return { ok: true, data: actions[name].handler(sub, user) };
+      } catch (err) {
+        return { ok: false, error: toErrorBody_(err) };
+      }
+    }),
+  };
 }
 
 /**

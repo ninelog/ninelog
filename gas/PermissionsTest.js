@@ -34,7 +34,7 @@ function permissionCheckedActions_() {
     'addPitchingRecord', 'listMyPitchingRecords', 'updatePitchingRecord', 'deletePitchingRecord',
     'getMyStats', 'getTeamRanking', 'getTournamentRanking', 'getTeamStats', 'getCalendar',
     'createGame', 'listTeamGames', 'updateGame', 'deleteGame',
-    'getDeletePreview', 'deleteTeam', 'listSoloMoveTargets', 'moveSoloRecords',
+    'getDeletePreview', 'deleteTeam', 'listSoloMoveTargets', 'moveSoloRecords', 'batch',
   ];
 }
 
@@ -178,6 +178,19 @@ function testPermissionsScenario_(results) {
   expectRefused('移す：他人の記録は移せない', 'FORBIDDEN', act('moveSoloRecords', { moves: [{ record_type: 'batting', record_id: recA.record_id, game_id: gx.game_id }] }, m));
   expectRefused('移す：ひとりの記録ではない自分の記録は移せない', 'FORBIDDEN', act('moveSoloRecords', { moves: [{ record_type: 'batting', record_id: recM.record_id, game_id: gx.game_id }] }, m));
   expectRefused('移す：管理者でも他人の記録は移せない', 'FORBIDDEN', act('moveSoloRecords', { moves: [{ record_type: 'batting', record_id: recO.record_id, game_id: gx.game_id }] }, m, true));
+
+  // ---------- まとめ（B-22）：まとめても、1件ずつのときと同じ決まり ----------
+  const bt = act('batch', { requests: [
+    { action: 'getTeamRanking', data: { team_id: teamY.team_id } },
+    { action: 'listMyBattingRecords', data: { team_id: teamY.team_id } },
+    { action: 'deleteTeam', data: { team_id: teamX.team_id, confirm_name: '権限X', owner_records: 'move' } },
+  ] }, m);
+  const btCode = function (r) { return r.ok ? 'OK' : r.error.code; };
+  results.push({ title: 'まとめ：所属していないチームのランキングは断る', expected: 'FORBIDDEN', actual: btCode(bt.results[0]) });
+  results.push({ title: 'まとめ：別のチームを指定しても、他人の記録は出ない', expected: 0, actual: bt.results[1].ok ? bt.results[1].data.records.length : -1 });
+  results.push({ title: 'まとめ：書き込む操作はまとめられない', expected: 'BAD_REQUEST', actual: btCode(bt.results[2]) });
+  const btAdmin = act('batch', { requests: [{ action: 'getTeamRanking', data: { team_id: teamY.team_id } }] }, m, true);
+  results.push({ title: 'まとめ：管理者でも、所属していないチームは見られない', expected: 'FORBIDDEN', actual: btCode(btAdmin.results[0]) });
 
   // ---------- 返事に他人のLINEユーザーIDが入っていない ----------
   const reads = {

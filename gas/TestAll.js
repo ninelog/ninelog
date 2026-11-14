@@ -38,6 +38,7 @@ function testAllNames_() {
     'testSolo',            // B-19 ひとりの記録
     'testLeave',           // B-20 退会
     'testDelete',          // B-21 チーム・大会を消す、ひとりの記録から移す
+    'testBatch',           // B-22 本人確認の結果を覚える、見るだけの操作をまとめる
   ];
 }
 

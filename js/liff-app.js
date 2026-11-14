@@ -58,21 +58,80 @@ const NinelogApp = (function () {
    * 札（IDトークン）の期限切れ（TOKEN_EXPIRED）のときは、ログインし直して1回だけやり直す（3.3章）。
    */
   function call(action, data) {
-    // 混み合っている（BUSY）ときは、1.5秒待って1回だけやり直す（3.5章）
-    return send(action, data).catch(function (err) {
+    // 見るだけの操作は、同じときに頼まれたものをまとめて1回で送る（B-22。11.10章）
+    if (BATCHABLE.hasOwnProperty(action)) {
+      return new Promise(function (resolve, reject) {
+        queue.push({ action: action, data: data || {}, resolve: resolve, reject: reject });
+        if (!flushTimer) flushTimer = setTimeout(flush, 0);
+      });
+    }
+    return callOne(action, data);
+  }
+
+  /** 1つの操作を送る。混み合っている（BUSY）ときは、1.5秒待って1回だけやり直す（3.5章） */
+  function callOne(action, data, label) {
+    return send(action, data, label).catch(function (err) {
       if (err.code !== 'BUSY') throw err;
       return new Promise(function (resolve) { setTimeout(resolve, 1500); })
-        .then(function () { return send(action, data); });
+        .then(function () { return send(action, data, label); });
     });
   }
 
-  function send(action, data) {
+  /* ---------- 見るだけの操作をまとめて送る（B-22） ---------- */
+
+  /** まとめてよい操作（書き込まない操作だけ。GASも書き込む操作は断る） */
+  const BATCHABLE = {
+    whoami: 1, listMyTeams: 1, listMyBattingRecords: 1, listMyPitchingRecords: 1, getMyStats: 1,
+    getTeamRanking: 1, getTournamentRanking: 1, getTeamStats: 1, getCalendar: 1, listTeamGames: 1,
+    getDeletePreview: 1, listSoloMoveTargets: 1,
+  };
+  const BATCH_MAX = 10;   // GASの決まりと同じ
+  let queue = [];
+  let flushTimer = null;
+  let batchUnsupported = false; // GASが batch を知らない（古い版の）ときは、1件ずつ送る
+
+  function toError(e) {
+    const err = new Error(e.message);
+    err.code = e.code;
+    err.details = e.details || null;
+    err.info = e.info || null;
+    return err;
+  }
+
+  /** たまった操作を送る：1件なら今までどおり、2件以上なら batch で1回に */
+  function flush() {
+    const items = queue;
+    queue = [];
+    flushTimer = null;
+    for (let i = 0; i < items.length; i += BATCH_MAX) sendGroup(items.slice(i, i + BATCH_MAX));
+  }
+
+  function sendOneEach(items) {
+    items.forEach(function (it) { callOne(it.action, it.data).then(it.resolve, it.reject); });
+  }
+
+  function sendGroup(items) {
+    if (items.length === 1 || batchUnsupported) { sendOneEach(items); return; }
+    const label = 'まとめて：' + items.map(function (it) { return it.action; }).join('・');
+    callOne('batch', { requests: items.map(function (it) { return { action: it.action, data: it.data }; }) }, label)
+      .then(function (res) {
+        res.results.forEach(function (r, i) {
+          if (r.ok) items[i].resolve(r.data);
+          else items[i].reject(toError(r.error || { code: 'INTERNAL', message: '想定外の返事でした' }));
+        });
+      }, function (err) {
+        if (err.code === 'UNKNOWN_ACTION') { batchUnsupported = true; sendOneEach(items); return; }
+        items.forEach(function (it) { it.reject(err); });
+      });
+  }
+
+  function send(action, data, label) {
     const t0 = performance.now();
     return sendOnce(action, data).then(function (result) {
-      recordTiming(action, performance.now() - t0, true);
+      recordTiming(label || action, performance.now() - t0, true);
       return result;
     }, function (err) {
-      recordTiming(action, performance.now() - t0, false);
+      recordTiming(label || action, performance.now() - t0, false);
       throw err;
     });
   }
