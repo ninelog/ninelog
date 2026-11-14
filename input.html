@@ -165,7 +165,30 @@
         </div>
       </form>
 
-      <p class="nl-note">打撃・投手の成績の入力は、このあと（C-4・C-5）この下に作ります。</p>
+    </section>
+
+    <!-- 3. 成績を入れる（C-4：打撃。C-5：投手） -->
+    <section class="nl-card" id="record-card" hidden>
+      <h2>3. 成績を入れる</h2>
+      <div class="nl-seg" role="group" aria-label="成績の種類">
+        <button type="button" class="nl-seg__btn" id="tab-batting" aria-pressed="true">打撃</button>
+        <button type="button" class="nl-seg__btn" id="tab-pitching" aria-pressed="false">投手</button>
+      </div>
+
+      <!-- 打撃（第4.4章の13項目） -->
+      <form id="batting-form" novalidate>
+        <p class="nl-alert nl-alert--info" id="batting-status" style="margin:0 0 12px" hidden></p>
+        <div class="nl-counts" id="batting-counts"></div>
+        <p class="nl-note">打数は、打席から四球・死球・犠打・犠飛を引いた数を自動で入れます。打撃妨害などで違うときは、打数を直接直してください（直したあとは自動で変わりません）。</p>
+        <div class="nl-actions">
+          <button type="submit" class="nl-btn nl-btn--block" id="btn-save-batting">打撃成績を保存する</button>
+        </div>
+      </form>
+
+      <!-- 投手（C-5 で作る） -->
+      <div id="pitching-panel" hidden>
+        <p class="nl-note">投手の成績の入力は、このあと（C-5）ここに作ります。</p>
+      </div>
     </section>
   </main>
 

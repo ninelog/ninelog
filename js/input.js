@@ -1,8 +1,11 @@
 /**
  * 「成績を入力」の画面（input.html）
  * C-4a：チームと試合日を選び、その日の試合を選ぶ（無ければ作る）。CLAUDE.md 11.1章・11.3章
+ * C-13：選んだ試合の情報を直す・消す（作った人と代表者だけ）
+ * C-4：選んだ試合に、打撃成績を入れる（入力済みなら直す）。第4.4章・4.5章
  *
- * 使うGASの操作：listMyTeams・listTeamGames・createGame
+ * 使うGASの操作：listMyTeams・startSolo・listTeamGames・createGame・updateGame・deleteGame・getCalendar・
+ *               listMyBattingRecords・addBattingRecord・updateBattingRecord
  */
 (function () {
   const $ = function (id) { return document.getElementById(id); };
@@ -21,7 +24,24 @@
     myTournaments: [],
     selectedGameId: '',
     editingGameId: '', // 情報を直している試合（C-13）
+    myBatting: null,   // 選んでいるチームの、自分の打撃成績 { game_id: 記録 }（読み込む前は null。C-4）
+    recordGameId: '',  // 成績の入力欄に入れてある試合（同じ試合なら、入れかけの数を消さない）
+    atBatsTouched: false, // 打数を自分で直したか（直したら、打数を自動で入れない）
   };
+
+  /** 打撃の13項目（第4.4章。GASの Validation.js と同じ名前・同じ順） */
+  const BATTING_ITEMS = [
+    ['plate_appearances', '打席'], ['at_bats', '打数'],
+    ['hits', '安打'], ['doubles', '二塁打'],
+    ['triples', '三塁打'], ['home_runs', '本塁打'],
+    ['rbis', '打点'], ['walks', '四球'],
+    ['hbp', '死球'], ['sacrifice_bunts', '犠打'],
+    ['sacrifice_flies', '犠飛'], ['strikeouts', '三振'],
+    ['stolen_bases', '盗塁'],
+  ];
+  /** 打数の自動計算に使う項目（打数 ＝ 打席 − 四球 − 死球 − 犠打 − 犠飛） */
+  const AT_BAT_SOURCES = ['plate_appearances', 'walks', 'hbp', 'sacrifice_bunts', 'sacrifice_flies'];
+  const MAX_COUNT = 99; // 1試合の数の上限（GASの Config.js の MAX_COUNT_PER_GAME と同じ）
 
   /* ---------- 日付（日本時間） ---------- */
 
@@ -117,7 +137,23 @@
 
   /** チームを選んだとき：カレンダーの○●と、選んでいる日の試合を読む */
   function loadTeam() {
-    return Promise.all([loadMarks(calendar.month()), loadDay()]).catch(function (err) { NinelogUI.showError(err, $('pick')); });
+    state.myBatting = null;
+    state.recordGameId = '';
+    return Promise.all([loadMarks(calendar.month()), loadDay(), loadMine()])
+      .catch(function (err) { NinelogUI.showError(err, $('pick')); });
+  }
+
+  /** 選んでいるチームの、自分の打撃成績を読む（入力済みかどうかを知るため。C-4） */
+  function loadMine() {
+    const teamId = state.teamId;
+    return NinelogApp.call('listMyBattingRecords', { team_id: teamId }).then(function (res) {
+      if (teamId !== state.teamId) return; // 読んでいる間にチームが切り替わったら使わない
+      const map = {};
+      res.records.forEach(function (r) { map[r.game_id] = r; });
+      state.myBatting = map;
+      state.recordGameId = ''; // 入力欄を入れ直す
+      renderRecordCard();
+    });
   }
 
   /**
@@ -208,6 +244,7 @@
   function renderSelected() {
     const g = state.games.filter(function (x) { return x.game_id === state.selectedGameId; })[0];
     $('selected').hidden = !g;
+    renderRecordCard();
     if (!g) return;
     const team = state.teams.filter(function (t) { return t.teamId === state.teamId; })[0];
     $('selected-title').textContent = dateLabel(g.game_date) + '　' + gameTitle(g);
@@ -364,6 +401,140 @@
     return 'この試合の成績は、' + teamName + 'のランキングに反映されます。';
   }
 
+  /* ---------- 3. 成績を入れる：打撃（C-4。第4.4章・4.5章） ---------- */
+
+  /** 13項目の入力欄を作る（最初に1回だけ）。－・＋で1ずつ増やせて、数字を直接打つこともできる */
+  function buildBattingCounts() {
+    const box = $('batting-counts');
+    BATTING_ITEMS.forEach(function (item) {
+      const field = item[0];
+      const wrap = el('div', 'nl-count');
+      const label = el('label', field === 'at_bats' ? 'nl-count__label--auto' : '', item[1]);
+      label.setAttribute('for', 'b-' + field);
+      const step = el('div', 'nl-step');
+      const minus = el('button', '', '－');
+      minus.type = 'button';
+      minus.setAttribute('aria-label', item[1] + 'を1減らす');
+      const input = el('input', '');
+      input.type = 'number';
+      input.id = 'b-' + field;
+      input.name = field; // GASのエラー（details の field）を、この欄の下に出すため
+      input.inputMode = 'numeric';
+      input.min = '0';
+      input.max = String(MAX_COUNT);
+      input.value = '0';
+      const plus = el('button', '', '＋');
+      plus.type = 'button';
+      plus.setAttribute('aria-label', item[1] + 'を1増やす');
+      minus.addEventListener('click', function () { setCount(field, countOf(field) - 1, true); });
+      plus.addEventListener('click', function () { setCount(field, countOf(field) + 1, true); });
+      input.addEventListener('focus', function () { input.select(); });
+      input.addEventListener('input', function () { changed(field, true); });
+      step.appendChild(minus);
+      step.appendChild(input);
+      step.appendChild(plus);
+      wrap.appendChild(label);
+      wrap.appendChild(step);
+      box.appendChild(wrap);
+    });
+  }
+
+  /** 欄の数（空や数でないものは0） */
+  function countOf(field) {
+    const n = parseInt($('b-' + field).value, 10);
+    return isNaN(n) ? 0 : n;
+  }
+
+  function setCount(field, value, byUser) {
+    $('b-' + field).value = String(Math.max(0, Math.min(MAX_COUNT, value)));
+    changed(field, byUser);
+  }
+
+  /** 打数 ＝ 打席 − 四球 − 死球 − 犠打 − 犠飛（0より小さくしない） */
+  function autoAtBats() {
+    return Math.max(0, countOf('plate_appearances') - countOf('walks') - countOf('hbp') -
+      countOf('sacrifice_bunts') - countOf('sacrifice_flies'));
+  }
+
+  /** 欄が変わったとき：打数を自分で直していなければ、打数を自動で入れ直す */
+  function changed(field, byUser) {
+    if (field === 'at_bats' && byUser) state.atBatsTouched = true;
+    if (!state.atBatsTouched && AT_BAT_SOURCES.indexOf(field) !== -1) {
+      $('b-at_bats').value = String(autoAtBats());
+    }
+  }
+
+  function setRecordTab(tab) {
+    $('tab-batting').setAttribute('aria-pressed', tab === 'batting' ? 'true' : 'false');
+    $('tab-pitching').setAttribute('aria-pressed', tab === 'pitching' ? 'true' : 'false');
+    $('batting-form').hidden = tab !== 'batting';
+    $('pitching-panel').hidden = tab !== 'pitching';
+  }
+
+  /**
+   * 「3. 成績を入れる」の四角を、選んでいる試合に合わせる。
+   * 入力済みなら、その数を入れて「直す」にする。まだなら0を入れて「保存する」にする。
+   * 同じ試合のままなら、入れかけの数を消さない。
+   */
+  function renderRecordCard() {
+    const g = selectedGame();
+    $('record-card').hidden = !g;
+    if (!g) { state.recordGameId = ''; return; }
+    const form = $('batting-form');
+    const status = $('batting-status');
+    const save = $('btn-save-batting');
+    if (!state.myBatting) {
+      // 自分の成績をまだ読み込んでいない（入力済みかどうかわからない）
+      status.hidden = false;
+      status.textContent = '読み込み中です…';
+      save.disabled = true;
+      return;
+    }
+    if (state.recordGameId === g.game_id) return;
+    state.recordGameId = g.game_id;
+    NinelogUI.clearAlerts(form);
+    save.disabled = false;
+    const rec = state.myBatting[g.game_id];
+    BATTING_ITEMS.forEach(function (item) {
+      $('b-' + item[0]).value = String(rec ? Number(rec[item[0]]) || 0 : 0);
+    });
+    // 入力済みの打数が自動の数と違えば、自分で直した打数として扱う（自動で上書きしない）
+    state.atBatsTouched = Boolean(rec) && countOf('at_bats') !== autoAtBats();
+    if (rec) {
+      status.hidden = false;
+      status.textContent = 'この試合の打撃成績は入力済みです。直すときは、数を変えて「打撃成績を直す」を押してください（' +
+        dateLabel(rec.editable_until) + 'まで直せます）。';
+      save.textContent = '打撃成績を直す';
+    } else {
+      status.hidden = true;
+      save.textContent = '打撃成績を保存する';
+    }
+  }
+
+  function saveBatting(e) {
+    e.preventDefault();
+    const g = selectedGame();
+    const form = $('batting-form');
+    if (!g || !state.myBatting) return;
+    NinelogUI.clearAlerts(form);
+    const rec = state.myBatting[g.game_id];
+    const data = { game_id: g.game_id };
+    BATTING_ITEMS.forEach(function (item) { data[item[0]] = $('b-' + item[0]).value.trim(); });
+    if (rec) data.record_id = rec.record_id;
+    return NinelogUI.withBusy($('btn-save-batting'), function () {
+      return NinelogApp.call(rec ? 'updateBattingRecord' : 'addBattingRecord', data).then(function (res) {
+        state.myBatting[res.record.game_id] = res.record;
+        state.recordGameId = '';
+        renderRecordCard();
+        // カレンダーの●を付け直す（印が読めなくても、保存はできている）
+        loadMarks(calendar.month()).catch(function () { /* そのまま */ });
+        // お祝い（res.celebrations）の表示は C-12 で作る
+        NinelogUI.showOk(res.unchanged ? '変わったところはありませんでした。'
+          : rec ? '打撃成績を直しました。' : '打撃成績を保存しました。', form);
+      }).catch(function (err) { NinelogUI.showError(err, form); });
+    });
+  }
+
   /* ---------- 新しい試合を作る ---------- */
 
   function showNewGame() {
@@ -463,6 +634,10 @@
   $('btn-today').addEventListener('click', function () { setDate(jstDate(0)); });
 
   $('btn-new').addEventListener('click', showNewGame);
+  buildBattingCounts();
+  $('batting-form').addEventListener('submit', saveBatting);
+  $('tab-batting').addEventListener('click', function () { setRecordTab('batting'); });
+  $('tab-pitching').addEventListener('click', function () { setRecordTab('pitching'); });
   $('btn-edit-game').addEventListener('click', openEdit);
   $('btn-edit-cancel').addEventListener('click', closeEdit);
   $('edit-game').addEventListener('submit', saveEdit);

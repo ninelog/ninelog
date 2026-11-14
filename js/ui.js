@@ -164,7 +164,8 @@ const NinelogUI = (function () {
       input.setAttribute('aria-invalid', 'true');
       const msg = el('div', 'nl-field-error', d.message);
       msg.setAttribute('data-nl-field-error', '');
-      input.insertAdjacentElement('afterend', msg);
+      // －・＋の付いた数の欄（.nl-step。C-4）では、欄の組のうしろ（行の下）に出す
+      (input.closest('.nl-step') || input).insertAdjacentElement('afterend', msg);
     });
     return unplaced;
   }
