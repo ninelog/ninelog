@@ -463,11 +463,26 @@
     },
   };
 
+  /** 安打の内訳（二塁打・三塁打・本塁打）。安打の下に字下げして「うち」の見出しを付けて並べる（2026-11-14 利用者の依頼） */
+  const HIT_BREAKDOWN = ['doubles', 'triples', 'home_runs'];
+
   /** 入力欄を作る（最初に1回だけ）。－・＋で1ずつ増やせて、数字を直接打つこともできる */
   function buildCounts(kind) {
     const k = RECORD_KINDS[kind];
-    const box = $(kind + '-counts');
+    const counts = $(kind + '-counts');
+    let group = null; // 安打の内訳のまとまり（打撃だけ）
     k.items.forEach(function (item) {
+      let box = counts;
+      if (kind === 'batting' && HIT_BREAKDOWN.indexOf(item[0]) !== -1) {
+        if (!group) {
+          group = el('div', 'nl-count-group');
+          group.setAttribute('role', 'group');
+          group.setAttribute('aria-label', '安打の内訳');
+          group.appendChild(el('p', 'nl-count-group__title', 'うち（安打の内訳）'));
+          counts.appendChild(group);
+        }
+        box = group;
+      }
       const field = item[0];
       const id = k.prefix + field;
       const wrap = el('div', 'nl-count');
@@ -498,6 +513,9 @@
       wrap.appendChild(label);
       wrap.appendChild(step);
       box.appendChild(wrap);
+      if (group && item[0] === HIT_BREAKDOWN[HIT_BREAKDOWN.length - 1]) {
+        group.appendChild(el('p', 'nl-count-group__note', '二塁打・三塁打・本塁打は、安打の数にも入れます（例：本塁打1本なら、安打にも1を数える）。'));
+      }
     });
   }
 
@@ -639,13 +657,36 @@
 
   /**
    * 保存・直したあとに、新しく達成した記録を出す（GASが決めた文 message をそのまま出す）。
-   * 何も達成していなければ出さない。保存のお知らせ（緑）のすぐ下に出す。
+   * 何も達成していなければ出さない。画面の真ん中に重ねて出す枠（ポップアップ）で出し、「閉じる」で閉じる（2026-11-14 利用者の依頼）。
    */
+  let celebrateLastFocus = null; // 閉じたあとに、押していたボタンに戻すため
+  function celebrateDialog() {
+    let overlay = $('celebrate-overlay');
+    if (overlay) return overlay;
+    overlay = el('div', 'nl-modal');
+    overlay.id = 'celebrate-overlay';
+    overlay.hidden = true;
+    const box = el('div', 'nl-modal__box nl-celebrate');
+    box.id = 'celebrate-box';
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-modal', 'true');
+    box.setAttribute('aria-labelledby', 'celebrate-title');
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !overlay.hidden) hideCelebration();
+    });
+    return overlay;
+  }
+
   function showCelebration(kind, list) {
-    const box = $('celebrate-' + kind);
+    if (!list.length) { hideCelebration(); return; }
+    const overlay = celebrateDialog();
+    const box = $('celebrate-box');
     box.innerHTML = '';
-    if (!list.length) { box.hidden = true; return; }
-    box.appendChild(el('p', 'nl-celebrate__title', '🎉 おめでとうございます！'));
+    const title = el('p', 'nl-celebrate__title', '🎉 おめでとうございます！');
+    title.id = 'celebrate-title';
+    box.appendChild(title);
     const ul = el('ul', 'nl-celebrate__list');
     list.forEach(function (c) {
       const li = el('li', '');
@@ -654,18 +695,32 @@
       ul.appendChild(li);
     });
     box.appendChild(ul);
-    // 保存のお知らせ（緑）のすぐ下になるように、四角の一番下に置き直す
-    $(RECORD_KINDS[kind].form).appendChild(box);
-    box.hidden = false;
+    const close = el('button', 'nl-btn nl-btn--block', '閉じる');
+    close.type = 'button';
+    close.addEventListener('click', hideCelebration);
+    const actions = el('div', 'nl-actions');
+    actions.appendChild(close);
+    box.appendChild(actions);
+    celebrateLastFocus = $(RECORD_KINDS[kind].save); // 閉じたら、保存のボタンに戻す
+    overlay.hidden = false;
+    document.body.classList.add('nl-modal-open'); // 後ろの画面がスクロールしないように
     // 出すたびに、少し動かして目に入るようにする（同じ要素でも動くように、いったん外す）
     box.classList.remove('is-pop');
     void box.offsetWidth;
     box.classList.add('is-pop');
+    close.focus();
   }
 
-  function hideCelebration(kind) {
-    const box = $('celebrate-' + kind);
-    if (box) { box.hidden = true; box.innerHTML = ''; }
+  function hideCelebration() {
+    const overlay = $('celebrate-overlay');
+    if (!overlay || overlay.hidden) return;
+    overlay.hidden = true;
+    $('celebrate-box').innerHTML = '';
+    document.body.classList.remove('nl-modal-open');
+    if (celebrateLastFocus && document.contains(celebrateLastFocus)) {
+      try { celebrateLastFocus.focus({ preventScroll: true }); } catch (e) { /* そのまま */ }
+    }
+    celebrateLastFocus = null;
   }
 
   /* ---------- 新しい試合を作る ---------- */

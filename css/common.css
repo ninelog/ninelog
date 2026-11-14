@@ -339,6 +339,14 @@ body {
 .nl-count { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 0; border-top: 1px solid var(--line); }
 .nl-count:first-child { border-top: none; }
 .nl-count label { flex: 1; font-size: 15px; font-weight: 700; color: var(--text); }
+/* 安打の内訳（二塁打・三塁打・本塁打）：安打の下に字下げして、左に線を引く（2026-11-14） */
+.nl-count-group { margin: 0 0 4px 18px; padding: 2px 0 6px 12px; border-left: 3px solid var(--accent-soft); }
+.nl-count-group__title { margin: 2px 0 0; font-size: 13px; font-weight: 700; color: var(--accent); }
+.nl-count-group .nl-count:first-of-type { border-top: none; }
+.nl-count-group .nl-count label { font-size: 14px; font-weight: 400; }
+.nl-count-group .nl-step { width: 140px; }
+.nl-count-group__note { margin: 4px 0 0; font-size: 12px; color: var(--sub); line-height: 1.5; }
+.nl-count-group + .nl-count { border-top: 1px solid var(--line); }
 .nl-count__label--auto::after { content: "（自動）"; font-size: 12px; font-weight: 400; color: var(--sub); }
 .nl-step { display: flex; align-items: stretch; width: 156px; }
 .nl-step button {
@@ -436,11 +444,19 @@ a.nl-chip { text-decoration: none; display: inline-flex; align-items: center; }
 .nl-move__to { width: 100%; margin-top: 8px; min-height: 40px; font-size: 14px; border: 1px solid var(--line); border-radius: 8px; padding: 0 8px; background: var(--card); color: var(--text); }
 
 /* 記録達成のお祝い（C-12） */
+/* 画面の真ん中に重ねて出す枠（ポップアップ。2026-11-14） */
+.nl-modal {
+  position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center;
+  padding: 16px; background: rgba(0, 0, 0, .45);
+}
+.nl-modal__box { width: 100%; max-width: 400px; max-height: calc(100vh - 32px); overflow-y: auto; box-shadow: 0 8px 32px rgba(0, 0, 0, .3); }
+.nl-modal__box .nl-actions { margin-top: 12px; }
+body.nl-modal-open { overflow: hidden; }
 .nl-celebrate {
-  margin-top: 10px; padding: 12px 14px; border-radius: 12px;
+  padding: 16px; border-radius: 14px;
   background: var(--warn-soft); border: 2px solid var(--warn); color: var(--text);
 }
-.nl-celebrate__title { margin: 0 0 6px; font-weight: 700; font-size: 16px; }
+.nl-celebrate__title { margin: 0 0 8px; font-weight: 700; font-size: 18px; text-align: center; }
 .nl-celebrate__list { list-style: none; margin: 0; padding: 0; }
 .nl-celebrate__list li { display: flex; gap: 8px; align-items: baseline; font-size: 15px; font-weight: 700; padding: 3px 0; }
 .nl-celebrate__icon { flex-shrink: 0; }
