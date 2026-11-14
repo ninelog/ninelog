@@ -32,6 +32,8 @@
       <div class="nl-field" id="team-field">
         <label for="team">チーム</label>
         <select id="team"></select>
+        <!-- チームを選ぶ理由（2026-11-15 利用者が決めた文） -->
+        <p class="nl-note">成績は、選んだチームに記録されます。チームのランキングやチームの成績は、ここで選んだチームの中で集計されます。チームに入っていない人は「ひとりの記録」を選んでください。</p>
       </div>
       <div class="nl-field">
         <!-- 試合日：画面の中のカレンダー（○チームの試合・●自分の成績）と、1日ずつ動かすボタン（C-4b。2026-11-14 利用者が決定） -->
@@ -69,9 +71,10 @@
         <datalist id="opponent-list"></datalist>
       </div>
       <div class="nl-field" id="tournament-field">
-        <label for="tournament_id">大会（任意）</label>
-        <select id="tournament_id" name="tournament_id"></select>
-        <p class="nl-note">大会の試合のときだけ選んでください（練習試合なら選ばない）。</p>
+        <!-- 大会は必ず選ぶ（「大会なし」か大会の名前。2026-11-15 利用者が決定） -->
+        <label for="tournament_id">大会 <span class="nl-required">必須</span></label>
+        <select id="tournament_id" name="tournament_id" required></select>
+        <p class="nl-note">大会の試合なら、その大会を選んでください。同じ大会に参加している人たちのランキングに入ります。練習試合などは「大会なし」を選んでください。</p>
       </div>
       <div class="nl-field">
         <label for="category">試合区分</label>
@@ -136,9 +139,9 @@
           <input type="text" id="edit-opponent" name="opponent" maxlength="30" list="opponent-list" autocomplete="off">
         </div>
         <div class="nl-field" id="edit-tournament-field">
-          <label for="edit-tournament">大会</label>
-          <select id="edit-tournament" name="tournament_id"></select>
-          <p class="nl-note">大会の試合のときだけ選んでください（練習試合なら選ばない）。</p>
+          <label for="edit-tournament">大会 <span class="nl-required">必須</span></label>
+          <select id="edit-tournament" name="tournament_id" required></select>
+          <p class="nl-note">大会の試合なら、その大会を選んでください。同じ大会に参加している人たちのランキングに入ります。練習試合などは「大会なし」を選んでください。</p>
         </div>
         <div class="nl-field">
           <label for="edit-category">試合区分</label>

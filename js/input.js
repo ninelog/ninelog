@@ -388,23 +388,16 @@
     // 大会：参加している大会と「大会なし」。今付いている大会に本人が参加していなくても、そのままにはできる（11.1章）
     const team = state.teams.filter(function (t) { return t.teamId === state.teamId; })[0];
     const tourSel = $('edit-tournament');
-    tourSel.innerHTML = '';
-    const none = el('option', '', '（大会なし）');
-    none.value = '';
-    tourSel.appendChild(none);
-    state.myTournaments.forEach(function (t) {
-      const o = el('option', '', t.tournamentName);
-      o.value = t.tournamentId;
-      tourSel.appendChild(o);
-    });
+    fillTournamentSelect(tourSel);
     if (g.tournament_id && !state.myTournaments.some(function (t) { return t.tournamentId === g.tournament_id; })) {
       const o = el('option', '', g.tournament_name + '（今のまま）');
       o.value = g.tournament_id;
       tourSel.appendChild(o);
     }
-    tourSel.value = g.tournament_id || '';
+    // 今の大会（無ければ「大会なし」）を選んでおく（作ってある試合のデータは、そのままにするため）
+    tourSel.value = g.tournament_id || TOURNAMENT_NONE;
     // ひとりの記録には大会を付けない。付けられる大会も今の大会も無いときは、欄を出さない
-    $('edit-tournament-field').hidden = (team && team.orgType === 'solo') || tourSel.options.length <= 1;
+    $('edit-tournament-field').hidden = (team && team.orgType === 'solo') || tourSel.options.length <= 2;
 
     $('btn-edit-game').hidden = true;
     $('btn-delete-game').hidden = true;
@@ -417,12 +410,13 @@
     const form = $('edit-game');
     if (!g) return;
     NinelogUI.clearAlerts(form);
+    if (!tournamentChosen('edit-tournament-field', 'edit-tournament', form)) return;
     const data = {
       game_id: g.game_id,
       game_date: $('edit-date').value,
       game_number: $('edit-number').value,
       opponent: $('edit-opponent').value.trim(),
-      tournament_id: $('edit-tournament').value,
+      tournament_id: tournamentValue('edit-tournament-field', 'edit-tournament'),
       category: $('edit-category').value,
       result: $('edit-result').value,
     };
@@ -775,21 +769,50 @@
     $('first-game-note').hidden = hasGames;
     $('same-day-warn').hidden = !hasGames;
 
-    const tour = $('tournament_id');
-    tour.innerHTML = '';
-    const none = el('option', '', '（大会なし）');
-    none.value = '';
-    tour.appendChild(none);
-    state.myTournaments.forEach(function (t) {
-      const o = el('option', '', t.tournamentName);
-      o.value = t.tournamentId;
-      tour.appendChild(o);
-    });
+    // 大会は必ず選ぶ：最初は「選んでください」（2026-11-15 利用者が決定）
+    fillTournamentSelect($('tournament_id'));
+    $('tournament_id').value = '';
     $('tournament-field').hidden = state.myTournaments.length === 0;
 
     form.hidden = false;
     $('btn-new').hidden = true;
     form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  /* ---------- 大会の欄（必ず選ぶ。2026-11-15 利用者が決定） ---------- */
+
+  const TOURNAMENT_NONE = 'none'; // 選択欄の「大会なし」の値（GASには空として送る）
+
+  /** 大会の選択欄の中身：「選んでください」「大会なし」と、参加している大会 */
+  function fillTournamentSelect(sel) {
+    sel.innerHTML = '';
+    const ask = el('option', '', '選んでください');
+    ask.value = '';
+    ask.disabled = true;
+    sel.appendChild(ask);
+    const none = el('option', '', '大会なし');
+    none.value = TOURNAMENT_NONE;
+    sel.appendChild(none);
+    state.myTournaments.forEach(function (t) {
+      const o = el('option', '', t.tournamentName);
+      o.value = t.tournamentId;
+      sel.appendChild(o);
+    });
+  }
+
+  /** 大会の欄を出しているのに選んでいなければ、欄の下にエラーを出して false */
+  function tournamentChosen(fieldId, selectId, form) {
+    if ($(fieldId).hidden || $(selectId).value) return true;
+    NinelogUI.showFieldErrors(form, [{ field: 'tournament_id', message: '大会を選んでください（大会の試合でなければ「大会なし」）。' }]);
+    $(selectId).focus();
+    return false;
+  }
+
+  /** GASに送る大会の値（欄を出していない・「大会なし」なら空） */
+  function tournamentValue(fieldId, selectId) {
+    if ($(fieldId).hidden) return '';
+    const v = $(selectId).value;
+    return v === TOURNAMENT_NONE ? '' : v;
   }
 
   function hideNewGame() {
@@ -811,11 +834,12 @@
     e.preventDefault();
     const form = $('new-game');
     NinelogUI.clearAlerts(form);
+    if (!tournamentChosen('tournament-field', 'tournament_id', form)) return;
     const data = {
       team_id: state.teamId,
       game_date: state.date,
       opponent: $('opponent').value.trim(),
-      tournament_id: $('tournament_id').value,
+      tournament_id: tournamentValue('tournament-field', 'tournament_id'),
       category: $('category').value,
       result: $('result').value,
     };
@@ -873,8 +897,10 @@
   $('btn-cancel').addEventListener('click', hideNewGame);
   // 大会を選んだら、試合区分を「公式戦」にする（変えてもよい。11.7章のD）
   $('tournament_id').addEventListener('change', function () {
-    if (this.value && !$('category').value) $('category').value = 'official';
+    if (this.value && this.value !== TOURNAMENT_NONE && !$('category').value) $('category').value = 'official';
+    NinelogUI.clearFieldErrors($('new-game'));
   });
+  $('edit-tournament').addEventListener('change', function () { NinelogUI.clearFieldErrors($('edit-game')); });
   $('new-game').addEventListener('submit', createGame);
 
   NinelogUI.boot('input', '成績を入力', start);
