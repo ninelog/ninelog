@@ -216,15 +216,22 @@ function isMemberOfTeamType_(userId, teamId) {
 function handleStartSolo_(data, user) {
   const existing = findSoloOf_(user.userId);
   if (existing) return { created: false, team: toTeamSummary_(existing, 'owner') };
+  return { created: true, team: toTeamSummary_(createSolo_(user.userId, new Date()), 'owner') };
+}
 
-  const now = new Date();
+/**
+ * ひとりの記録場所を作る（本人が代表者のメンバー1行も足す）。
+ * startSolo のほか、チームを消すときに、ひとりの記録が無いメンバーの分を自動で作るのにも使う（B-21）。
+ * @return {Object} 作った teams の行
+ */
+function createSolo_(userId, now) {
   const team = {
     team_id: Utilities.getUuid(),
     team_number: '',
     team_name: SOLO_NAME,
     passphrase_hash: '',
     passphrase_salt: '',
-    created_by: user.userId,
+    created_by: userId,
     created_at: now,
     updated_at: now,
     org_type: ORG_TYPE.SOLO,
@@ -232,12 +239,12 @@ function handleStartSolo_(data, user) {
   appendRecord_(CONFIG.SHEET.TEAMS, team);
   appendRecord_(CONFIG.SHEET.MEMBERSHIPS, {
     membership_id: Utilities.getUuid(),
-    user_id: user.userId,
+    user_id: userId,
     team_id: team.team_id,
     role: 'owner',
     joined_at: now,
   });
-  return { created: true, team: toTeamSummary_(team, 'owner') };
+  return team;
 }
 
 /** 本人のひとりの記録場所（無ければ null） */

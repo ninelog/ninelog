@@ -1,7 +1,10 @@
 /**
  * 「チーム・設定」の画面（team.html）。C-9。CLAUDE.md 4.8章
  *
- * 使うGASの操作：whoami・listMyTeams・joinTeam・createTeam・changePassphrase・updateMyName
+ * C-9e：代表者はチーム・大会を消せる。ひとりの記録の成績を、あとからチームの試合に移せる（11.9章。B-21）
+ *
+ * 使うGASの操作：whoami・listMyTeams・joinTeam・createTeam・changePassphrase・updateMyName・startSolo・leaveTeam・
+ *               getDeletePreview・deleteTeam・listSoloMoveTargets・moveSoloRecords
  */
 (function () {
   const $ = function (id) { return document.getElementById(id); };
@@ -61,10 +64,11 @@
       const main = el('div', 'nl-row__main');
       main.appendChild(el('span', 'nl-row__name', t.teamName));
       if (t.orgType === 'solo') {
-        // ひとりの記録：番号・役割・合言葉・退会は無い
+        // ひとりの記録：番号・役割・合言葉・退会は無い。消せない。成績をチームに移せる（C-9e）
         main.appendChild(el('span', 'nl-badge', 'ひとり'));
         main.appendChild(el('span', 'nl-row__meta', 'あなただけの記録'));
         row.appendChild(main);
+        row.appendChild(moveSoloForm(t, row));
         box.appendChild(row);
         return;
       }
@@ -72,8 +76,14 @@
       main.appendChild(el('span', 'nl-badge', t.role === 'owner' ? '代表者' : 'メンバー'));
       main.appendChild(el('span', 'nl-row__meta', '番号 ' + t.teamNumber));
       row.appendChild(main);
-      // 代表者は合言葉を変えられる。メンバーは退会できる（代表者は退会できない。B-20）
-      row.appendChild(t.role === 'owner' ? passphraseForm(t, row) : leaveForm(t, row));
+      // 代表者は合言葉を変えられて、チーム・大会を消せる（C-9e）。メンバーは退会できる（代表者は退会できない。B-20）
+      if (t.role === 'owner') {
+        const wrap = passphraseForm(t, row);
+        addDeleteForm(t, row, wrap);
+        row.appendChild(wrap);
+      } else {
+        row.appendChild(leaveForm(t, row));
+      }
       box.appendChild(row);
     });
   }
@@ -166,6 +176,256 @@
     wrap.appendChild(open);
     wrap.appendChild(form);
     return wrap;
+  }
+
+  /* ---------- チーム・大会を消す（C-9e。11.9章） ---------- */
+
+  /**
+   * 代表者だけ：「消す」ボタンと、確かめる欄を、合言葉の欄（wrap）に足す。
+   * 押すと、GASに消す前の数（メンバーの人数・移る成績の件数など）を聞いて出し、名前を入力すると消せる。
+   */
+  function addDeleteForm(t, row, wrap) {
+    const isTour = t.orgType === 'tournament';
+    const kind = isTour ? '大会' : 'チーム';
+    const open = el('button', 'nl-chip nl-chip--danger', kind + 'を消す');
+    open.type = 'button';
+    const panel = el('div', 'nl-danger-box');
+    panel.hidden = true;
+    // 合言葉を変える欄より前に、ボタンを並べる
+    wrap.insertBefore(open, wrap.children[1] || null);
+    wrap.appendChild(panel);
+
+    const close = function () {
+      panel.hidden = true;
+      panel.innerHTML = '';
+      wrap.querySelectorAll(':scope > .nl-chip').forEach(function (b) { b.hidden = false; });
+      NinelogUI.clearAlerts(row);
+    };
+
+    open.addEventListener('click', function () {
+      NinelogUI.clearAlerts(row);
+      NinelogUI.withBusy(open, function () {
+        return NinelogApp.call('getDeletePreview', { team_id: t.teamId }).then(function (pv) {
+          wrap.querySelectorAll(':scope > .nl-chip').forEach(function (b) { b.hidden = true; });
+          wrap.querySelectorAll(':scope > form').forEach(function (f) { f.hidden = true; });
+          renderDeletePanel(t, pv, panel, row, close);
+          panel.hidden = false;
+        }).catch(function (err) { NinelogUI.showError(err, row); });
+      });
+    });
+  }
+
+  function renderDeletePanel(t, pv, panel, row, close) {
+    const isTour = pv.orgType === 'tournament';
+    const kind = isTour ? '大会' : 'チーム';
+    panel.innerHTML = '';
+    panel.appendChild(el('p', 'nl-danger-box__title', '「' + pv.teamName + '」を消しますか？ 消すと元に戻せません。'));
+    const ul = el('ul', 'nl-danger-box__list');
+    const li = function (text) { ul.appendChild(el('li', '', text)); };
+    if (isTour) {
+      li('参加者 ' + pv.members + '人、大会の試合 ' + pv.games + '試合');
+      li('試合に付いていた大会の印を外します。成績は、それぞれのチームにそのまま残ります。');
+      li('大会のランキングはなくなります。');
+    } else {
+      li('メンバー ' + pv.members + '人（あなたを含む）、試合 ' + pv.games + '試合');
+      if (pv.otherRecords) {
+        li('ほかの人の成績 ' + pv.otherRecords + '件（' + pv.otherPeople + '人。退会した人を含む）は、それぞれの人の「ひとりの記録」に移ります（ひとりの記録が無い人には自動で作ります）。');
+      }
+      if (pv.tournamentRecords) {
+        li('大会の試合の成績 ' + pv.tournamentRecords + '件は、大会の印を外して移すので、大会のランキングから外れます。');
+      }
+      li('チームのランキングと、チームの成績はなくなります。');
+    }
+    li('番号 ' + pv.teamNumber + ' は、あとでほかの' + kind + 'に使えるようになります。');
+    panel.appendChild(ul);
+
+    const form = el('form', '');
+    form.noValidate = true;
+    // 代表者自身の成績だけは、移すか消すかを選べる
+    if (!isTour && pv.ownerRecords) {
+      const fs = el('fieldset', 'nl-radios');
+      fs.appendChild(el('legend', '', 'あなたの成績 ' + pv.ownerRecords + '件'));
+      [['move', 'ひとりの記録に移す'], ['delete', '消す']].forEach(function (o, i) {
+        const label = el('label');
+        const input = el('input');
+        input.type = 'radio';
+        input.name = 'owner_records';
+        input.value = o[0];
+        if (i === 0) input.checked = true;
+        label.appendChild(input);
+        label.appendChild(document.createTextNode(' ' + o[1]));
+        fs.appendChild(label);
+      });
+      form.appendChild(fs);
+    }
+    const field = el('div', 'nl-field');
+    const id = 'confirm-' + t.teamId;
+    const label = el('label', '', '確かめるため、' + kind + '名「' + pv.teamName + '」を入力してください');
+    label.setAttribute('for', id);
+    const input = el('input');
+    input.type = 'text';
+    input.id = id;
+    input.name = 'confirm_name';
+    input.autocomplete = 'off';
+    field.appendChild(label);
+    field.appendChild(input);
+    form.appendChild(field);
+    const actions = el('div', 'nl-actions');
+    const yes = el('button', 'nl-btn nl-btn--danger', kind + 'を消す');
+    yes.type = 'submit';
+    yes.disabled = true;
+    const no = el('button', 'nl-btn nl-btn--sub', 'やめる');
+    no.type = 'button';
+    actions.appendChild(yes);
+    actions.appendChild(no);
+    form.appendChild(actions);
+    panel.appendChild(form);
+
+    // 名前が合うまで、消すボタンは押せない（まちがえて消さないように）
+    input.addEventListener('input', function () { yes.disabled = input.value.trim() !== pv.teamName; });
+    no.addEventListener('click', close);
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      NinelogUI.clearAlerts(form);
+      const checked = form.querySelector('input[name="owner_records"]:checked');
+      const data = { team_id: t.teamId, confirm_name: input.value.trim() };
+      if (checked) data.owner_records = checked.value;
+      NinelogUI.withBusy(yes, function () {
+        return NinelogApp.call('deleteTeam', data).then(function (res) {
+          let msg = '「' + res.teamName + '」を消しました。';
+          if (res.movedRecords) msg += '成績 ' + res.movedRecords + '件を、それぞれの人のひとりの記録に移しました。';
+          if (res.untaggedGames) msg += res.untaggedGames + '試合の大会の印を外しました。';
+          // 消した行は無くなるので、お知らせは一覧の四角の一番下に出す
+          return reloadTeams().then(function () { NinelogUI.showOk(msg, $('teams-card')); });
+        }).catch(function (err) { NinelogUI.showError(err, form); });
+      });
+    });
+  }
+
+  /* ---------- ひとりの記録の成績を、チームに移す（C-9e。11.9章） ---------- */
+
+  function moveSoloForm(t, row) {
+    const wrap = el('div', 'nl-row__actions');
+    const open = el('button', 'nl-chip', '成績をチームに移す');
+    open.type = 'button';
+    const panel = el('div', '');
+    panel.hidden = true;
+    panel.style.width = '100%';
+    wrap.appendChild(open);
+    wrap.appendChild(panel);
+    const close = function () { panel.hidden = true; panel.innerHTML = ''; open.hidden = false; NinelogUI.clearAlerts(row); };
+    const load = function () {
+      return NinelogApp.call('listSoloMoveTargets').then(function (res) {
+        renderMovePanel(res.records, panel, close, load);
+        panel.hidden = false;
+        open.hidden = true;
+      });
+    };
+    open.addEventListener('click', function () {
+      NinelogUI.clearAlerts(row);
+      NinelogUI.withBusy(open, function () { return load().catch(function (err) { NinelogUI.showError(err, row); }); });
+    });
+    return wrap;
+  }
+
+  /** 「11月8日（日）」の形 */
+  function dateLabel(text) {
+    const p = String(text).split('-').map(Number);
+    const week = '日月火水木金土'.charAt(new Date(p[0], p[1] - 1, p[2]).getDay());
+    return p[1] + '月' + p[2] + '日（' + week + '）';
+  }
+  function gameText(g) {
+    return '第' + g.game_number + '試合' + (g.opponent ? '　vs ' + g.opponent : '');
+  }
+  function recordText(r) {
+    if (r.record_type === 'pitching') return '投手：' + r.innings_text + '　自責点' + r.earned_runs;
+    return '打撃：' + r.plate_appearances + '打席 ' + r.at_bats + '打数 ' + r.hits + '安打' + (Number(r.rbis) ? '　打点' + r.rbis : '');
+  }
+
+  function renderMovePanel(records, panel, close, reload) {
+    panel.innerHTML = '';
+    panel.appendChild(el('p', 'nl-note', 'ひとりの記録の成績を、同じ日のチームの試合に移します。移すと、チームのランキングとチームの成績に入ります。' +
+      '30日より前の記録も移せます。数字は変わりません。チームの試合は新しく作らないので、先に「成績を入力」でチームの試合を作ってください。'));
+    if (!records.length) {
+      panel.appendChild(el('p', 'nl-empty', 'ひとりの記録に、移せる成績はありません。'));
+    }
+    const form = el('form', '');
+    form.noValidate = true;
+    const list = el('div', 'nl-rows');
+    const items = [];
+    records.forEach(function (r) {
+      const item = el('div', 'nl-row nl-move');
+      const head = el('label', 'nl-move__head');
+      const check = el('input');
+      check.type = 'checkbox';
+      head.appendChild(check);
+      const text = el('span', '');
+      text.appendChild(el('span', 'nl-row__name', dateLabel(r.game_date) + '　' + gameText(r)));
+      text.appendChild(el('span', 'nl-move__line', recordText(r)));
+      head.appendChild(text);
+      item.appendChild(head);
+
+      // 移す先：同じ日のチームの試合（そこに同じ種類の自分の成績があれば選べない）
+      const usable = r.candidates.filter(function (c) { return !c.has_my_record; });
+      let select = null;
+      if (!r.candidates.length) {
+        item.appendChild(el('p', 'nl-note', '同じ日のチームの試合が無いので、移せません。'));
+        check.disabled = true;
+      } else if (!usable.length) {
+        item.appendChild(el('p', 'nl-note', '同じ日のチームの試合に、あなたの' + (r.record_type === 'pitching' ? '投手' : '打撃') + '成績がすでにあるので、移せません。'));
+        check.disabled = true;
+      } else {
+        select = el('select', 'nl-move__to');
+        r.candidates.forEach(function (c) {
+          const o = el('option', '', '移す先：' + c.team_name + '　' + gameText(c) + (c.tournament_name ? '（' + c.tournament_name + '）' : '') +
+            (c.has_my_record ? '（あなたの成績あり）' : ''));
+          o.value = c.game_id;
+          o.disabled = c.has_my_record;
+          select.appendChild(o);
+        });
+        select.value = usable[0].game_id;
+        select.setAttribute('aria-label', '移す先の試合');
+        item.appendChild(select);
+      }
+      list.appendChild(item);
+      items.push({ record: r, check: check, select: select });
+    });
+    form.appendChild(list);
+
+    const actions = el('div', 'nl-actions');
+    const go = el('button', 'nl-btn', '選んだ成績をチームに移す');
+    go.type = 'submit';
+    const no = el('button', 'nl-btn nl-btn--sub', '閉じる');
+    no.type = 'button';
+    if (records.length) actions.appendChild(go);
+    actions.appendChild(no);
+    form.appendChild(actions);
+    panel.appendChild(form);
+
+    const count = function () { return items.filter(function (x) { return x.check.checked; }).length; };
+    const update = function () {
+      const n = count();
+      go.disabled = n === 0;
+      go.textContent = n ? '選んだ成績 ' + n + '件をチームに移す' : '移す成績を選んでください';
+    };
+    items.forEach(function (x) { x.check.addEventListener('change', update); });
+    update();
+    no.addEventListener('click', close);
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      NinelogUI.clearAlerts(form);
+      const moves = items.filter(function (x) { return x.check.checked; }).map(function (x) {
+        return { record_type: x.record.record_type, record_id: x.record.record_id, game_id: x.select.value };
+      });
+      NinelogUI.withBusy(go, function () {
+        return NinelogApp.call('moveSoloRecords', { moves: moves }).then(function (res) {
+          // 一覧を読み直してから、お知らせを出す（移した記録は一覧から消える）
+          return reload().then(function () {
+            NinelogUI.showOk('成績 ' + res.moved + '件を、チームの試合に移しました。', panel);
+          });
+        }).catch(function (err) { NinelogUI.showError(err, form); });
+      });
+    });
   }
 
   /* ---------- 参加する・作る・表示名 ---------- */

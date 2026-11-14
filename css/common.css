@@ -432,3 +432,13 @@ body {
 
 /* リンクの小さなボタン（「直す」など）は、ボタンと同じ見た目にする（C-10） */
 a.nl-chip { text-decoration: none; display: inline-flex; align-items: center; }
+
+/* チーム・大会を消す確かめる欄、ひとりの記録から移す一覧（C-9e） */
+.nl-danger-box { width: 100%; border: 1px solid var(--error); border-radius: 10px; padding: 10px 12px; margin-top: 8px; }
+.nl-danger-box__title { font-weight: 700; color: var(--error); margin: 0 0 6px; }
+.nl-danger-box__list { margin: 0 0 12px; padding-left: 1.2em; font-size: 14px; line-height: 1.6; }
+.nl-move__head { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+.nl-move__head input { width: 20px; height: 20px; margin-top: 2px; flex-shrink: 0; accent-color: var(--accent); }
+.nl-move__head > span { display: flex; flex-direction: column; gap: 2px; }
+.nl-move__line { font-size: 14px; }
+.nl-move__to { width: 100%; margin-top: 8px; min-height: 40px; font-size: 14px; border: 1px solid var(--line); border-radius: 8px; padding: 0 8px; background: var(--card); color: var(--text); }

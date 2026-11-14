@@ -34,6 +34,7 @@ function permissionCheckedActions_() {
     'addPitchingRecord', 'listMyPitchingRecords', 'updatePitchingRecord', 'deletePitchingRecord',
     'getMyStats', 'getTeamRanking', 'getTournamentRanking', 'getTeamStats', 'getCalendar',
     'createGame', 'listTeamGames', 'updateGame', 'deleteGame',
+    'getDeletePreview', 'deleteTeam', 'listSoloMoveTargets', 'moveSoloRecords',
   ];
 }
 
@@ -163,6 +164,21 @@ function testPermissionsScenario_(results) {
   expectRefused('退会：代表者は退会できない', 'FORBIDDEN', act('leaveTeam', { team_id: teamX.team_id }, a));
   expectRefused('退会：管理者でも、所属していないチームからは退会できない', 'FORBIDDEN', act('leaveTeam', { team_id: teamY.team_id }, m, true));
 
+  // ---------- チーム・大会を消す、ひとりの記録から移す（B-21） ----------
+  expectRefused('消す前の確認：メンバーは見られない', 'FORBIDDEN', act('getDeletePreview', { team_id: teamX.team_id }, m));
+  expectRefused('消す前の確認：所属していないチーム', 'FORBIDDEN', act('getDeletePreview', { team_id: teamY.team_id }, m));
+  expectRefused('消す前の確認：管理者でも、代表者でなければ見られない', 'FORBIDDEN', act('getDeletePreview', { team_id: teamY.team_id }, m, true));
+  expectRefused('消す：メンバーは自分のチームでも消せない', 'FORBIDDEN', act('deleteTeam', { team_id: teamX.team_id, confirm_name: '権限X', owner_records: 'move' }, m));
+  expectRefused('消す：参加者は大会を消せない', 'FORBIDDEN', act('deleteTeam', { team_id: tourX.team_id, confirm_name: '権限大会X' }, m));
+  expectRefused('消す：所属していないチーム', 'FORBIDDEN', act('deleteTeam', { team_id: teamY.team_id, confirm_name: '権限Y', owner_records: 'move' }, m));
+  expectRefused('消す：管理者でも、代表者でなければ消せない', 'FORBIDDEN', act('deleteTeam', { team_id: teamY.team_id, confirm_name: '権限Y', owner_records: 'move' }, m, true));
+  expectRefused('消す：他人のひとりの記録には触れられない', 'FORBIDDEN', act('deleteTeam', { team_id: soloA.teamId, confirm_name: 'ひとりの記録' }, m));
+  expectRefused('消す：自分のひとりの記録も消せない', 'FORBIDDEN', act('deleteTeam', { team_id: soloM.teamId, confirm_name: 'ひとりの記録' }, m));
+  results.push({ title: '断ったあとも、チームXは残っている', expected: true, actual: Boolean(findTeamByNumber_('999999931')) });
+  expectRefused('移す：他人の記録は移せない', 'FORBIDDEN', act('moveSoloRecords', { moves: [{ record_type: 'batting', record_id: recA.record_id, game_id: gx.game_id }] }, m));
+  expectRefused('移す：ひとりの記録ではない自分の記録は移せない', 'FORBIDDEN', act('moveSoloRecords', { moves: [{ record_type: 'batting', record_id: recM.record_id, game_id: gx.game_id }] }, m));
+  expectRefused('移す：管理者でも他人の記録は移せない', 'FORBIDDEN', act('moveSoloRecords', { moves: [{ record_type: 'batting', record_id: recO.record_id, game_id: gx.game_id }] }, m, true));
+
   // ---------- 返事に他人のLINEユーザーIDが入っていない ----------
   const reads = {
     whoami: act('whoami', {}, m),
@@ -174,6 +190,8 @@ function testPermissionsScenario_(results) {
     getTournamentRanking: act('getTournamentRanking', { tournament_id: tourX.team_id }, m),
     getTeamStats: act('getTeamStats', { team_id: teamX.team_id }, m),
     getCalendar: act('getCalendar', { month: '2026-11' }, m),
+    listSoloMoveTargets: act('listSoloMoveTargets', {}, m),
+    getDeletePreview: act('getDeletePreview', { team_id: teamX.team_id }, a),
   };
   Object.keys(reads).forEach(function (name) {
     const text = JSON.stringify(reads[name]);

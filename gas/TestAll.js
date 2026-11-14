@@ -37,6 +37,7 @@ function testAllNames_() {
     'testPermissions',     // B-18 権限チェックのまとめ
     'testSolo',            // B-19 ひとりの記録
     'testLeave',           // B-20 退会
+    'testDelete',          // B-21 チーム・大会を消す、ひとりの記録から移す
   ];
 }
 

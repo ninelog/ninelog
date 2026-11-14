@@ -54,6 +54,10 @@ function getActions_() {
     listTeamGames: { handler: handleListTeamGames_, write: false },
     updateGame: { handler: handleUpdateGame_, write: true },
     deleteGame: { handler: handleDeleteGame_, write: true },
+    getDeletePreview: { handler: handleGetDeletePreview_, write: false },     // B-21
+    deleteTeam: { handler: handleDeleteTeam_, write: true },                  // B-21
+    listSoloMoveTargets: { handler: handleListSoloMoveTargets_, write: false }, // B-21
+    moveSoloRecords: { handler: handleMoveSoloRecords_, write: true },        // B-21
   };
 }
 
