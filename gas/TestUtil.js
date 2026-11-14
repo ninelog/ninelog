@@ -23,7 +23,7 @@ function cleanupTestData_() {
 
 /**
  * 自動テストが作った組織の行か：自動テスト専用の番号のチーム・大会と、
- * 仮の人（Utest…）のひとりの記録（番号を持たないので、作った人で見分ける。B-19）
+ * 仮の人（Utest…）の個人用の記録（番号を持たないので、作った人で見分ける。B-19）
  */
 function isTestTeamRow_(t) {
   return isTestTeamNumber_(t.team_number) || (orgTypeOf_(t) === ORG_TYPE.SOLO && isTestUserId_(t.created_by));
@@ -119,9 +119,9 @@ function joinTestTeam_(user, teamNumber, passphrase, now) {
  */
 function createTestGame_(user, teamId, gameDate, today, extra) {
   const team = findRecord_(CONFIG.SHEET.TEAMS, function (t) { return t.team_id === teamId; });
-  // 自動テスト専用の番号のチームか、仮の人のひとりの記録（B-19）だけ
+  // 自動テスト専用の番号のチームか、仮の人の個人用の記録（B-19）だけ
   if (!isTestUserId_(user.userId) || !team || !isTestTeamRow_(team)) {
-    throw new Error('自動テストでは、仮の人（Utest…）と自動テスト専用の番号のチーム（または仮の人のひとりの記録）だけを使います');
+    throw new Error('自動テストでは、仮の人（Utest…）と自動テスト専用の番号のチーム（または仮の人の個人用の記録）だけを使います');
   }
   const result = callAsTest_(handleCreateGame_, Object.assign({ team_id: teamId, game_date: gameDate }, extra || {}), user, { today: today || gameDate });
   if (!result.game) throw new Error('テスト用の試合を作れませんでした：' + JSON.stringify(result));

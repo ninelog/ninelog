@@ -6,7 +6,7 @@
  * 何を消して、何を残すか（利用者が了承した表。CLAUDE.md 8.13章）：
  * | シート | 消すもの | 残すもの |
  * | users | なし | すべて（利用者の登録と表示名） |
- * | teams | 予約番号（1〜1998）のチーム・大会、ひとりの記録、自動テスト専用の番号、PURGE_DELETE_TEAM_NUMBERS に書いた本物の番号 | それ以外の本物の番号（1999〜）のチーム・大会 |
+ * | teams | 予約番号（1〜1998）のチーム・大会、個人用の記録、自動テスト専用の番号、PURGE_DELETE_TEAM_NUMBERS に書いた本物の番号 | それ以外の本物の番号（1999〜）のチーム・大会 |
  * | memberships | 消すチーム・大会の参加と、チームの無い参加 | 残すチーム・大会の参加 |
  * | games・batting_records・pitching_records・record_changes・join_attempts | すべて | なし |
  * スクリプトプロパティ：テストの途中の TEST_ALL_REMAINING だけ消す（隠し味・合鍵・管理者などは残す）。
@@ -60,7 +60,7 @@ function purgePlan_(tables, deleteNumbers, rowFilter) {
   const teamDeleteReason = function (t) {
     const type = orgTypeOf_(t);
     const n = Number(t.team_number);
-    if (type === ORG_TYPE.SOLO) return 'ひとりの記録';
+    if (type === ORG_TYPE.SOLO) return '個人用の記録';
     if (n >= 1 && n <= CONFIG.RESERVED_TEAM_NUMBER_MAX) return '予約番号（テスト用）';
     if (isTestTeamNumber_(t.team_number)) return '自動テスト専用の番号';
     if (numbers.indexOf(String(t.team_number)) !== -1) return '消すと決めた番号';
@@ -119,7 +119,7 @@ function purgeSummaryLines_(tables, plan) {
   });
   const typeLabel = function (t) {
     const type = orgTypeOf_(t);
-    return type === ORG_TYPE.SOLO ? 'ひとり' : type === ORG_TYPE.TOURNAMENT ? '大会' : 'チーム';
+    return type === ORG_TYPE.SOLO ? '個人用' : type === ORG_TYPE.TOURNAMENT ? '大会' : 'チーム';
   };
   const members = function (t) {
     return (tables[CONFIG.SHEET.MEMBERSHIPS] || []).filter(function (m) { return m.team_id === t.team_id; }).length;
@@ -131,7 +131,7 @@ function purgeSummaryLines_(tables, plan) {
     if (orgTypeOf_(d.record) === ORG_TYPE.SOLO) return;
     lines.push('- 番号 ' + d.record.team_number + '　' + typeLabel(d.record) + '「' + d.record.team_name + '」　メンバー ' + members(d.record) + '人　（' + d.reason + '）');
   });
-  if (soloCount) lines.push('- ひとりの記録 ' + soloCount + '件');
+  if (soloCount) lines.push('- 個人用の記録 ' + soloCount + '件');
   lines.push('');
   lines.push('■ 残すチーム・大会（' + plan.teamsKept.length + '）　※ 試合と成績は消えます。メンバーの参加は残ります');
   plan.teamsKept.forEach(function (d) {

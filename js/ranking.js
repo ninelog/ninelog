@@ -1,7 +1,7 @@
 /**
  * 「ランキング」の画面（ranking.html）。C-7・C-8・C-7b・C-7c・C-7d。CLAUDE.md 6.2〜6.4章・11.7章・11.8章
  *
- * - チームか大会（ひとりの記録は出さない）と年度を選び、8部門を切り替えて見る
+ * - チームか大会（個人用の記録は出さない）と年度を選び、8部門を切り替えて見る
  * - 順位・規定の判定はGAS（getTeamRanking・getTournamentRanking）が行い、画面は並べて出すだけ（6.3章）
  * - C-7d：チームと大会を1つの選択欄に並べる（「チーム：〇〇」「大会：〇〇」。11.7章のH）。
  *   大会のランキングでは、表示名の横にチーム名を出す（11.7章のE）。チームの成績（C-7b）は大会には無い（11.7章のI）
@@ -59,7 +59,7 @@
       prefetched = { data: data, promise: promise };
     }
     return NinelogApp.call('listMyTeams').then(function (res) {
-      // ランキングがあるのはチームと大会（ひとりの記録には無い：11.8章の7）。チームを先、大会をあとに並べる
+      // ランキングがあるのはチームと大会（個人用の記録には無い：11.8章の7）。チームを先、大会をあとに並べる
       const pick = function (type, prefix) {
         return res.teams.filter(function (t) { return t.orgType === type; })
           .map(function (t) { return { key: prefix + t.teamId, kind: prefix === 'tour:' ? 'tour' : 'team', name: t.teamName }; });

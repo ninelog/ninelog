@@ -1,7 +1,7 @@
 /**
  * 「自分の成績」の画面（mystats.html）。C-6。CLAUDE.md 6.5章・11.7章のG・11.8章
  *
- * - 年度（通算・記録がある年度）と範囲（全チーム合計・各チーム・ひとりの記録・各大会）を選ぶ
+ * - 年度（通算・記録がある年度）と範囲（全チーム合計・各チーム・個人用の記録・各大会）を選ぶ
  * - 打撃（率4つと13項目の合計・塁打）と投手（防御率・投球回・自責点）を出す
  * - 計算はGAS（getMyStats）が行い、画面は出すだけ（6.3章と同じ考え方）
  *
@@ -104,7 +104,7 @@
     const scope = $('scope');
     scope.innerHTML = '';
     scope.appendChild(option('', '全チーム合計'));
-    // チームと、ひとりの記録（11.8章の6）
+    // チームと、個人用の記録（11.8章の6）
     const teams = res.teams.filter(function (t) { return t.orgType !== 'solo'; });
     const solo = res.teams.filter(function (t) { return t.orgType === 'solo'; });
     if (teams.length) {
@@ -131,10 +131,10 @@
     if (res.tournamentId) return 'この大会の試合として登録された試合の成績だけを合計しています。';
     if (res.teamId) {
       const t = res.teams.filter(function (x) { return x.teamId === res.teamId; })[0];
-      if (t && t.orgType === 'solo') return 'ひとりの記録の成績だけを合計しています。';
+      if (t && t.orgType === 'solo') return '個人用の記録の成績だけを合計しています。';
       return 'このチームの試合の成績だけを合計しています（大会の試合も入ります）。';
     }
-    return '所属しているすべてのチームと、ひとりの記録の成績を合計しています。';
+    return '所属しているすべてのチームと、個人用の記録の成績を合計しています。';
   }
 
   /* ---------- 成績 ---------- */
@@ -361,7 +361,7 @@
 
   /**
    * 範囲の選択に合わせて、カレンダーのチームを決める。
-   * チームか、ひとりの記録を選んでいるときはそのチームだけ。全チーム合計と大会のときは、所属している全チーム
+   * チームか、個人用の記録を選んでいるときはそのチームだけ。全チーム合計と大会のときは、所属している全チーム
    * （カレンダーの○はチームの試合なので、大会では出せない。11.7章のJ）。
    */
   function syncCalendar(res) {

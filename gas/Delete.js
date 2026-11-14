@@ -1,24 +1,24 @@
 /**
- * チーム・大会を消す／ひとりの記録の成績をチームに移す（CLAUDE.md 11.9章。B-21）
+ * チーム・大会を消す／個人用の記録の成績をチームに移す（CLAUDE.md 11.9章。B-21）
  *
  * 操作：
  * - getDeletePreview：消す前の確認の画面に出す数（メンバーの人数、移る成績の件数など）
- * - deleteTeam：チームか大会を消す（代表者だけ。ひとりの記録は消せない）
- * - listSoloMoveTargets：ひとりの記録の成績と、それぞれを移せるチームの試合（同じ日の試合）
- * - moveSoloRecords：ひとりの記録の成績を、まとめてチームの試合に移す（本人だけ）
+ * - deleteTeam：チームか大会を消す（代表者だけ。個人用の記録は消せない）
+ * - listSoloMoveTargets：個人用の記録の成績と、それぞれを移せるチームの試合（同じ日の試合）
+ * - moveSoloRecords：個人用の記録の成績を、まとめてチームの試合に移す（本人だけ）
  *
  * 決まり：
- * - チームを消すとき、他のメンバー（退会した人を含む）の成績は、本人それぞれの「ひとりの記録」に移す。
- *   ひとりの記録が無い人には自動で作る。代表者自身の成績だけは「移す」か「消す」かを選べる。
- * - 移すときは、試合の情報（日付・第何試合・相手・区分・勝敗）を、ひとりの記録の側に写した試合を作る。
- *   第何試合が重なるときは、その日の次の番号にする。大会の印は外す（ひとりの記録には大会を付けないため）。
+ * - チームを消すとき、他のメンバー（退会した人を含む）の成績は、本人それぞれの「個人用の記録」に移す。
+ *   個人用の記録が無い人には自動で作る。代表者自身の成績だけは「移す」か「消す」かを選べる。
+ * - 移すときは、試合の情報（日付・第何試合・相手・区分・勝敗）を、個人用の記録の側に写した試合を作る。
+ *   第何試合が重なるときは、その日の次の番号にする。大会の印は外す（個人用の記録には大会を付けないため）。
  * - 大会を消すと、試合に付いていた大会の印を外す。成績はチームにそのまま残る。
  * - 消したチーム・大会の行は、teams と memberships から消す（番号をまた使えるように）。試合は論理削除。
  * - 30日の期限は、消すとき・移すときには使わない（数字は変えない）。
  * - 消したこと・移したことは record_changes に残す。
  */
 
-const DELETE_MOVE_MAX = 50; // ひとりの記録から一度に移せる記録の数
+const DELETE_MOVE_MAX = 50; // 個人用の記録から一度に移せる記録の数
 
 /* ---------- 消す前の確認 ---------- */
 
@@ -84,12 +84,12 @@ function handleDeleteTeam_(data, user) {
     const ownerMode = data.owner_records;
     if (ownerHas && ownerMode !== 'move' && ownerMode !== 'delete') {
       throw new AppError(APP_ERROR.VALIDATION_ERROR, '入力内容に誤りがあります', [
-        { field: 'owner_records', message: 'あなたの成績を、ひとりの記録に移すか消すかを選んでください' },
+        { field: 'owner_records', message: 'あなたの成績を、個人用の記録に移すか消すかを選んでください' },
       ]);
     }
     const t = recordTypes_();
-    const soloOf = {};      // user_id → ひとりの記録の行
-    const copiedGame = {};  // 「ひとりの記録のID|元の試合のID」→ 写した試合
+    const soloOf = {};      // user_id → 個人用の記録の行
+    const copiedGame = {};  // 「個人用の記録のID|元の試合のID」→ 写した試合
     records.forEach(function (x) {
       const r = x.record;
       const g = x.game;
@@ -129,13 +129,13 @@ function handleDeleteTeam_(data, user) {
   return result;
 }
 
-/** 消せるチーム・大会を探す：代表者（owner）だけ。ひとりの記録・存在しないIDは断る */
+/** 消せるチーム・大会を探す：代表者（owner）だけ。個人用の記録・存在しないIDは断る */
 function ownedOrgForDelete_(teamId, user) {
   const org = typeof teamId === 'string' && teamId !== ''
     ? findRecord_(CONFIG.SHEET.TEAMS, function (t) { return t.team_id === teamId; })
     : null;
   if (org && orgTypeOf_(org) === ORG_TYPE.SOLO) {
-    throw new AppError(APP_ERROR.FORBIDDEN, 'ひとりの記録は消せません');
+    throw new AppError(APP_ERROR.FORBIDDEN, '個人用の記録は消せません');
   }
   const owner = org && findRecord_(CONFIG.SHEET.MEMBERSHIPS, function (m) {
     return m.team_id === teamId && m.user_id === user.userId && m.role === 'owner';
@@ -174,8 +174,8 @@ function recordsInGames_(games) {
 }
 
 /**
- * 試合の情報を、ひとりの記録の側に写した試合を作る（大会の印は外す）。
- * 第何試合は元の番号を使い、その日のひとりの記録に同じ番号があれば、次の番号にする。
+ * 試合の情報を、個人用の記録の側に写した試合を作る（大会の印は外す）。
+ * 第何試合は元の番号を使い、その日の個人用の記録に同じ番号があれば、次の番号にする。
  */
 function copyGameToSolo_(game, solo, userId, now) {
   const date = dateText_(game.game_date);
@@ -201,7 +201,7 @@ function copyGameToSolo_(game, solo, userId, now) {
   return copy;
 }
 
-/* ---------- ひとりの記録の成績を、チームの試合に移す ---------- */
+/* ---------- 個人用の記録の成績を、チームの試合に移す ---------- */
 
 /**
  * 操作：listSoloMoveTargets
@@ -216,7 +216,7 @@ function handleListSoloMoveTargets_(data, user, options) {
   const soloGames = {};
   activeGamesOf_(solo.team_id).forEach(function (g) { soloGames[g.game_id] = g; });
 
-  // 移す先になれるのは、今所属しているチーム（大会とひとりの記録は除く）の、消していない試合
+  // 移す先になれるのは、今所属しているチーム（大会と個人用の記録は除く）の、消していない試合
   const myTeams = handleListMyTeams_({}, user).teams.filter(function (t) { return t.orgType === ORG_TYPE.TEAM; });
   const teamName = {};
   myTeams.forEach(function (t) { teamName[t.teamId] = t.teamName; });
@@ -262,7 +262,7 @@ function handleListSoloMoveTargets_(data, user, options) {
  * 操作：moveSoloRecords
  * data: { moves: [{ record_type: 'batting'|'pitching', record_id, game_id（移す先のチームの試合） }] }（1〜50件）
  * すべて確かめてから、まとめて移す（1件でもまちがいがあれば、何も移さない）。
- * 移したあと、記録が1件も無くなったひとりの記録の試合は消す（論理削除）。
+ * 移したあと、記録が1件も無くなった個人用の記録の試合は消す（論理削除）。
  * 返事：{ moved: 件数, deletedSoloGames: 件数 }
  */
 function handleMoveSoloRecords_(data, user) {
@@ -271,7 +271,7 @@ function handleMoveSoloRecords_(data, user) {
     throw new AppError(APP_ERROR.BAD_REQUEST, '移す記録を1〜' + DELETE_MOVE_MAX + '件選んでください');
   }
   const solo = findSoloOf_(user.userId);
-  if (!solo) throw new AppError(APP_ERROR.FORBIDDEN, 'ひとりの記録がありません');
+  if (!solo) throw new AppError(APP_ERROR.FORBIDDEN, '個人用の記録がありません');
   const t = recordTypes_();
   const errors = [];
   const plan = [];
@@ -287,7 +287,7 @@ function handleMoveSoloRecords_(data, user) {
     }
     const from = findActiveGame_(rec.game_id);
     if (!from || from.team_id !== solo.team_id) {
-      throw new AppError(APP_ERROR.FORBIDDEN, '移せるのは、ひとりの記録の成績だけです');
+      throw new AppError(APP_ERROR.FORBIDDEN, '移せるのは、個人用の記録の成績だけです');
     }
     const to = findActiveGame_(mv.game_id);
     const toTeam = to && findRecord_(CONFIG.SHEET.TEAMS, function (x) { return x.team_id === to.team_id; });
@@ -318,7 +318,7 @@ function handleMoveSoloRecords_(data, user) {
     updateRecord_(t[p.type].sheet, p.record._row, { game_id: p.to.game_id, updated_at: now });
     appendRecordChanges_(p.type, p.record.record_id, user.userId, 'update', { game_id: { oldValue: p.from.game_id, newValue: p.to.game_id } }, now);
   });
-  // 記録が無くなったひとりの記録の試合は消す（カレンダーに空の試合が残らないように）
+  // 記録が無くなった個人用の記録の試合は消す（カレンダーに空の試合が残らないように）
   let deletedSoloGames = 0;
   const seen = {};
   plan.forEach(function (p) {

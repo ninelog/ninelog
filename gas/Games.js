@@ -99,7 +99,7 @@ function handleListTeamGames_(data, user, options) {
   const result = {
     games: games.map(function (g) { return toGameSummary_(g, user, today); }),
     opponentSuggestions: opponentSuggestions_(all),
-    // 試合に付けられる大会（本人が参加している大会）。ひとりの記録の試合には大会を付けないので、空（11.8章の4）
+    // 試合に付けられる大会（本人が参加している大会）。個人用の記録の試合には大会を付けないので、空（11.8章の4）
     myTournaments: isSoloTeam_(teamId) ? [] : handleListMyTeams_({}, user).teams
       .filter(function (t) { return t.orgType === ORG_TYPE.TOURNAMENT; })
       .map(function (t) { return { tournamentId: t.teamId, tournamentNumber: t.teamNumber, tournamentName: t.teamName }; }),
@@ -235,17 +235,17 @@ function checkChoice_(value, choices, field, message, errors) {
   return value;
 }
 
-/** そのIDの組織が、ひとりの記録か */
+/** そのIDの組織が、個人用の記録か */
 function isSoloTeam_(teamId) {
   const t = findRecord_(CONFIG.SHEET.TEAMS, function (x) { return x.team_id === teamId; });
   return Boolean(t) && orgTypeOf_(t) === ORG_TYPE.SOLO;
 }
 
-/** ひとりの記録の試合には、大会を付けられない（11.8章の4。B-19） */
+/** 個人用の記録の試合には、大会を付けられない（11.8章の4。B-19） */
 function assertNotSoloForTournament_(teamId) {
   if (isSoloTeam_(teamId)) {
     throw new AppError(APP_ERROR.VALIDATION_ERROR, '入力内容に誤りがあります', [
-      { field: 'tournament_id', message: 'ひとりの記録の試合には、大会を付けられません' },
+      { field: 'tournament_id', message: '個人用の記録の試合には、大会を付けられません' },
     ]);
   }
 }

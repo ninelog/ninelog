@@ -136,7 +136,7 @@
   }
 
   /**
-   * 成績を付けられる組織（チームと、ひとりの記録。11.8章）を選択欄に並べて、試合を選ぶ画面に進む。
+   * 成績を付けられる組織（チームと、個人用の記録。11.8章）を選択欄に並べて、試合を選ぶ画面に進む。
    * 1つも無ければ「まだチームに入っていません」を出す。preferId を渡すと、それを選んでおく。
    */
   function showTeams(orgs, preferId) {
@@ -150,7 +150,7 @@
     const select = $('team');
     select.innerHTML = '';
     state.teams.forEach(function (t) {
-      const o = el('option', '', t.teamName); // ひとりの記録は、名前（「ひとりの記録」）で見分けられる
+      const o = el('option', '', t.teamName); // 個人用の記録は、名前（「個人用の記録」）で見分けられる
       o.value = t.teamId;
       select.appendChild(o);
     });
@@ -190,7 +190,7 @@
     return p;
   }
 
-  /** 「ひとりで記録する」：記録場所を作って（すでにあればそれを使って）、そのまま試合を選ぶ画面に進む（11.8章） */
+  /** 「個人用の記録を始める」：記録場所を作って（すでにあればそれを使って）、そのまま試合を選ぶ画面に進む（11.8章） */
   function startSolo() {
     const card = $('no-team');
     NinelogUI.clearAlerts(card);
@@ -199,7 +199,7 @@
         try { localStorage.setItem(TEAM_KEY, res.team.teamId); } catch (e) { /* 覚えられなくても動く */ }
         return NinelogApp.call('listMyTeams').then(function (list) {
           showTeams(list.teams, res.team.teamId);
-          NinelogUI.showOk('「ひとりの記録」を用意しました。試合を作って、成績を入れてください。', $('pick'));
+          NinelogUI.showOk('「個人用の記録」を用意しました。試合を作って、成績を入れてください。', $('pick'));
         });
       }).catch(function (err) { NinelogUI.showError(err, card); });
     });
@@ -396,7 +396,7 @@
     }
     // 今の大会（無ければ「大会なし」）を選んでおく（作ってある試合のデータは、そのままにするため）
     tourSel.value = g.tournament_id || TOURNAMENT_NONE;
-    // ひとりの記録には大会を付けない。付けられる大会も今の大会も無いときは、欄を出さない
+    // 個人用の記録には大会を付けない。付けられる大会も今の大会も無いときは、欄を出さない
     $('edit-tournament-field').hidden = (team && team.orgType === 'solo') || tourSel.options.length <= 2;
 
     $('btn-edit-game').hidden = true;
@@ -465,7 +465,7 @@
 
   /** 選んだ試合の成績が、どこに反映されるか（2026-11-14 利用者が決定） */
   function reflectText(g, team) {
-    if (team && team.orgType === 'solo') return 'この試合の成績は、ひとりの記録に保存されます（あなただけが見られます）。';
+    if (team && team.orgType === 'solo') return 'この試合の成績は、個人用の記録に保存されます（あなただけが見られます）。';
     const teamName = team ? team.teamName : 'チーム';
     if (g.tournament_id && g.in_my_tournament) {
       return 'この試合の成績は、' + teamName + 'と' + g.tournament_name + 'のランキングに反映されます。';

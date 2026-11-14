@@ -35,9 +35,9 @@ function testAllNames_() {
     'testCelebrations',    // B-16 記録達成のお祝い
     'testCalendar',        // B-17 カレンダー用の情報
     'testPermissions',     // B-18 権限チェックのまとめ
-    'testSolo',            // B-19 ひとりの記録
+    'testSolo',            // B-19 個人用の記録
     'testLeave',           // B-20 退会
-    'testDelete',          // B-21 チーム・大会を消す、ひとりの記録から移す
+    'testDelete',          // B-21 チーム・大会を消す、個人用の記録から移す
     'testBatch',           // B-22 本人確認の結果を覚える、見るだけの操作をまとめる
     'testWebhook',         // B-23 公式LINEのトークへの返信
     'testSheetCache',      // B-24 GASの中にシートの中身を覚える

@@ -37,7 +37,7 @@ function testPurgePlanScenario_(results) {
   const tables = {};
   tables[T.USERS] = [r({ user_id: 'Ua' }), r({ user_id: 'Ub' })];
   tables[T.TEAMS] = [
-    r({ team_id: 'solo1', team_number: '', team_name: 'ひとりの記録', org_type: 'solo' }),
+    r({ team_id: 'solo1', team_number: '', team_name: '個人用の記録', org_type: 'solo' }),
     r({ team_id: 'res5', team_number: '5', team_name: '管理者テスト', org_type: 'team' }),
     r({ team_id: 'res1998', team_number: '1998', team_name: 'テスト大会', org_type: 'tournament' }),
     r({ team_id: 'real2001', team_number: '2001', team_name: '本物ナイン', org_type: 'team' }),
@@ -57,7 +57,7 @@ function testPurgePlanScenario_(results) {
   const plan = purgePlan_(tables, ['２００２']); // 全角のまま渡したとき（ふだんは purgeDeleteNumbers_ が半角にしてから渡す）
   const plan2 = purgePlan_(tables, ['2002']);
   const ids = function (list, key) { return list.map(function (x) { return x[key]; }).sort().join(','); };
-  results.push({ title: '消すチーム：ひとりの記録・予約番号（チームも大会も）・自動テスト専用・消すと決めた本物の番号', expected: 'auto,real2002,res1998,res5,solo1', actual: ids(plan2.rows[T.TEAMS], 'team_id') });
+  results.push({ title: '消すチーム：個人用の記録・予約番号（チームも大会も）・自動テスト専用・消すと決めた本物の番号', expected: 'auto,real2002,res1998,res5,solo1', actual: ids(plan2.rows[T.TEAMS], 'team_id') });
   results.push({ title: '残すチーム：消すと決めていない本物の番号だけ', expected: 'real2001', actual: plan2.teamsKept.map(function (d) { return d.record.team_id; }).join(',') });
   results.push({ title: '参加：消すチームの参加と、チームの無い参加を消し、残すチームの参加は残す', expected: 'gone,real2002,res5,solo1',
     actual: ids(plan2.rows[T.MEMBERSHIPS], 'team_id') });
@@ -136,7 +136,7 @@ function testPurgeApplyScenario_(results) {
       batting: plan.rows[T.BATTING].length,
     };
   });
-  results.push({ title: '仮の人の行だけに絞って消すと、テストのチームとひとりの記録・参加・試合・打撃が対象になる', expected: '2/2/1/1',
+  results.push({ title: '仮の人の行だけに絞って消すと、テストのチームと個人用の記録・参加・試合・打撃が対象になる', expected: '2/2/1/1',
     actual: [counts.teams, counts.memberships, counts.games, counts.batting].join('/') });
   forgetSheets_();
   results.push({ title: '消したあと、テストのチームは残っていない', expected: null, actual: findTeamByNumber_('999999972') });

@@ -1,7 +1,7 @@
 /**
  * 「チーム・設定」の画面（team.html）。C-9。CLAUDE.md 4.8章
  *
- * C-9e：代表者はチーム・大会を消せる。ひとりの記録の成績を、あとからチームの試合に移せる（11.9章。B-21）
+ * C-9e：代表者はチーム・大会を消せる。個人用の記録の成績を、あとからチームの試合に移せる（11.9章。B-21）
  *
  * 使うGASの操作：whoami・listMyTeams・joinTeam・createTeam・changePassphrase・updateMyName・startSolo・leaveTeam・
  *               getDeletePreview・deleteTeam・listSoloMoveTargets・moveSoloRecords
@@ -43,12 +43,12 @@
   function renderTeams(teams) {
     const box = $('teams');
     box.innerHTML = '';
-    // ひとりの記録場所がまだ無い人にだけ、「ひとりで記録する」を出す（11.8章の1・10）
+    // 個人用の記録場所がまだ無い人にだけ、「個人用の記録を始める」を出す（11.8章の1・10）
     $('solo-card').hidden = teams.some(function (t) { return t.orgType === 'solo'; });
 
     const count = function (type) { return teams.filter(function (t) { return t.orgType === type; }).length; };
     const parts = ['チーム' + count('team'), '大会' + count('tournament')];
-    if (count('solo')) parts.push('ひとり');
+    if (count('solo')) parts.push('個人用');
     const summary = $('teams-summary');
     summary.innerHTML = '';
     summary.appendChild(document.createTextNode('所属：' + parts.join('・')));
@@ -64,8 +64,8 @@
       const main = el('div', 'nl-row__main');
       main.appendChild(el('span', 'nl-row__name', t.teamName));
       if (t.orgType === 'solo') {
-        // ひとりの記録：番号・役割・合言葉・退会は無い。消せない。成績をチームに移せる（C-9e）
-        main.appendChild(el('span', 'nl-badge', 'ひとり'));
+        // 個人用の記録：番号・役割・合言葉・退会は無い。消せない。成績をチームに移せる（C-9e）
+        main.appendChild(el('span', 'nl-badge', '個人用'));
         main.appendChild(el('span', 'nl-row__meta', 'あなただけの記録'));
         row.appendChild(main);
         row.appendChild(moveSoloForm(t, row));
@@ -229,7 +229,7 @@
     } else {
       li('メンバー ' + pv.members + '人（あなたを含む）、試合 ' + pv.games + '試合');
       if (pv.otherRecords) {
-        li('ほかの人の成績 ' + pv.otherRecords + '件（' + pv.otherPeople + '人。退会した人を含む）は、それぞれの人の「ひとりの記録」に移ります（ひとりの記録が無い人には自動で作ります）。');
+        li('ほかの人の成績 ' + pv.otherRecords + '件（' + pv.otherPeople + '人。退会した人を含む）は、それぞれの人の「個人用の記録」に移ります（個人用の記録が無い人には自動で作ります）。');
       }
       if (pv.tournamentRecords) {
         li('大会の試合の成績 ' + pv.tournamentRecords + '件は、大会の印を外して移すので、大会のランキングから外れます。');
@@ -245,7 +245,7 @@
     if (!isTour && pv.ownerRecords) {
       const fs = el('fieldset', 'nl-radios');
       fs.appendChild(el('legend', '', 'あなたの成績 ' + pv.ownerRecords + '件'));
-      [['move', 'ひとりの記録に移す'], ['delete', '消す']].forEach(function (o, i) {
+      [['move', '個人用の記録に移す'], ['delete', '消す']].forEach(function (o, i) {
         const label = el('label');
         const input = el('input');
         input.type = 'radio';
@@ -293,7 +293,7 @@
       NinelogUI.withBusy(yes, function () {
         return NinelogApp.call('deleteTeam', data).then(function (res) {
           let msg = '「' + res.teamName + '」を消しました。';
-          if (res.movedRecords) msg += '成績 ' + res.movedRecords + '件を、それぞれの人のひとりの記録に移しました。';
+          if (res.movedRecords) msg += '成績 ' + res.movedRecords + '件を、それぞれの人の個人用の記録に移しました。';
           if (res.untaggedGames) msg += res.untaggedGames + '試合の大会の印を外しました。';
           // 消した行は無くなるので、お知らせは一覧の四角の一番下に出す
           return reloadTeams().then(function () { NinelogUI.showOk(msg, $('teams-card')); });
@@ -302,7 +302,7 @@
     });
   }
 
-  /* ---------- ひとりの記録の成績を、チームに移す（C-9e。11.9章） ---------- */
+  /* ---------- 個人用の記録の成績を、チームに移す（C-9e。11.9章） ---------- */
 
   function moveSoloForm(t, row) {
     const wrap = el('div', 'nl-row__actions');
@@ -344,10 +344,10 @@
 
   function renderMovePanel(records, panel, close, reload) {
     panel.innerHTML = '';
-    panel.appendChild(el('p', 'nl-note', 'ひとりの記録の成績を、同じ日のチームの試合に移します。移すと、チームのランキングとチームの成績に入ります。' +
+    panel.appendChild(el('p', 'nl-note', '個人用の記録の成績を、同じ日のチームの試合に移します。移すと、チームのランキングとチームの成績に入ります。' +
       '30日より前の記録も移せます。数字は変わりません。チームの試合は新しく作らないので、先に「成績を入力」でチームの試合を作ってください。'));
     if (!records.length) {
-      panel.appendChild(el('p', 'nl-empty', 'ひとりの記録に、移せる成績はありません。'));
+      panel.appendChild(el('p', 'nl-empty', '個人用の記録に、移せる成績はありません。'));
     }
     const form = el('form', '');
     form.noValidate = true;
@@ -510,7 +510,7 @@
       return NinelogApp.call('startSolo').then(function () {
         // 記録場所ができると、この四角は消えるので、成功のお知らせは「所属しているチーム」の四角に出す
         return reloadTeams().then(function () {
-          NinelogUI.showOk('「ひとりの記録」を用意しました。「成績を入力」から試合を作って、成績を入れられます。', $('teams-card'));
+          NinelogUI.showOk('「個人用の記録」を用意しました。「成績を入力」から試合を作って、成績を入れられます。', $('teams-card'));
         });
       }).catch(function (err) { NinelogUI.showError(err, card); });
     });

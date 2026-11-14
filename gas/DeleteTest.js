@@ -1,5 +1,5 @@
 /**
- * B-21（チーム・大会を消す／ひとりの記録の成績をチームに移す）のテスト
+ * B-21（チーム・大会を消す／個人用の記録の成績をチームに移す）のテスト
  *
  * 使い方：GASの編集画面で testDelete を選んで「実行」。
  * 仮の人（Utest…）と自動テスト専用の番号（999999900〜）のチーム・大会だけを使い、最初と最後に消す。
@@ -19,9 +19,9 @@ function testDelete() {
 
 function testDeleteScenario_(results) {
   const o = { userId: 'Utest_dlo', name: 'おおた' };   // チームA・大会・チームBの代表者
-  const m = { userId: 'Utest_dlm', name: 'みやた' };   // メンバー（ひとりの記録あり）
-  const x = { userId: 'Utest_dlx', name: 'きむら' };   // メンバー（あとで退会。ひとりの記録なし）
-  const n = { userId: 'Utest_dln', name: 'なかの' };   // メンバー（ひとりの記録なし。30日より前の試合だけ）
+  const m = { userId: 'Utest_dlm', name: 'みやた' };   // メンバー（個人用の記録あり）
+  const x = { userId: 'Utest_dlx', name: 'きむら' };   // メンバー（あとで退会。個人用の記録なし）
+  const n = { userId: 'Utest_dln', name: 'なかの' };   // メンバー（個人用の記録なし。30日より前の試合だけ）
   const T = '2026-11-10';
   const act = function (name, data, user, isAdmin) {
     const action = getActions_()[name];
@@ -52,7 +52,7 @@ function testDeleteScenario_(results) {
   joinTestTeam_(n, '999999941', 'ないんろぐ99');
   joinTestTeam_(m, '999999942', 'たいかい99');
 
-  // みやたは、前からひとりの記録を持っていて、11月1日に第1試合がある（番号が重なる場合を確かめる）
+  // みやたは、前から個人用の記録を持っていて、11月1日に第1試合がある（番号が重なる場合を確かめる）
   const soloM = act('startSolo', {}, m).team;
   createTestGame_(m, soloM.teamId, '2026-11-01', T);
 
@@ -81,31 +81,31 @@ function testDeleteScenario_(results) {
   results.push({ title: '消す：メンバーは消せない', expected: 'FORBIDDEN', actual: codeOf(act('deleteTeam', { team_id: teamA.team_id, confirm_name: '消すテストA', owner_records: 'move' }, m)) });
   results.push({ title: '消す：チーム名が違うと消せない', expected: 'VALIDATION_ERROR:confirm_name', actual: codeOf(act('deleteTeam', { team_id: teamA.team_id, confirm_name: '消すテスト', owner_records: 'move' }, o)) });
   results.push({ title: '消す：代表者の成績をどうするか選ばないと消せない', expected: 'VALIDATION_ERROR:owner_records', actual: codeOf(act('deleteTeam', { team_id: teamA.team_id, confirm_name: '消すテストA' }, o)) });
-  results.push({ title: '消す：ひとりの記録は消せない', expected: 'FORBIDDEN', actual: codeOf(act('deleteTeam', { team_id: soloM.teamId, confirm_name: 'ひとりの記録' }, m)) });
+  results.push({ title: '消す：個人用の記録は消せない', expected: 'FORBIDDEN', actual: codeOf(act('deleteTeam', { team_id: soloM.teamId, confirm_name: '個人用の記録' }, m)) });
   results.push({ title: '消す：存在しないIDは断る', expected: 'FORBIDDEN', actual: codeOf(act('deleteTeam', { team_id: 'no-such-team', confirm_name: 'x' }, o)) });
   results.push({ title: '断ったあとも、チームは残っている', expected: true, actual: Boolean(findTeamByNumber_('999999941')) });
 
   // ---------- チームを消す（代表者の成績は消す） ----------
   const del = act('deleteTeam', { team_id: teamA.team_id, confirm_name: ' 消すテストA ', owner_records: 'delete' }, o);
-  results.push({ title: '消す：移した5件・消した1件・ひとりの記録を新しく作った2人', expected: '5/1/2', actual: del.movedRecords + '/' + del.deletedRecords + '/' + del.createdSolos });
+  results.push({ title: '消す：移した5件・消した1件・個人用の記録を新しく作った2人', expected: '5/1/2', actual: del.movedRecords + '/' + del.deletedRecords + '/' + del.createdSolos });
   results.push({ title: '消したチームは、一覧から消える', expected: false, actual: act('listMyTeams', {}, o).teams.some(function (t) { return t.teamId === teamA.team_id; }) });
   results.push({ title: '代表者の成績は消えている（論理削除）', expected: true, actual: Boolean(findBat(ro.record_id).deleted_at) });
   results.push({ title: '元のチームの試合は消えている（論理削除）', expected: 'true/true/true', actual: [g1, g2, g3].map(function (g) { return Boolean(gameOf(g.game_id).deleted_at); }).join('/') });
 
-  // みやた：打撃2件と投手1件が、本人のひとりの記録に移る。g1 の打撃と投手は同じ写しの試合に入る
+  // みやた：打撃2件と投手1件が、本人の個人用の記録に移る。g1 の打撃と投手は同じ写しの試合に入る
   const mSolo = findSoloOf_(m.userId);
   const b1 = findBat(rm1.record_id), p1 = findPit(pm1.record_id), b2 = findBat(rm2.record_id);
   const c1 = gameOf(b1.game_id), c2 = gameOf(b2.game_id);
-  results.push({ title: 'みやたの成績は、ひとりの記録の試合に移る', expected: 'true/true/true', actual: [c1.team_id === mSolo.team_id, gameOf(p1.game_id).team_id === mSolo.team_id, c2.team_id === mSolo.team_id].join('/') });
+  results.push({ title: 'みやたの成績は、個人用の記録の試合に移る', expected: 'true/true/true', actual: [c1.team_id === mSolo.team_id, gameOf(p1.game_id).team_id === mSolo.team_id, c2.team_id === mSolo.team_id].join('/') });
   results.push({ title: '同じ試合の打撃と投手は、同じ写しの試合に入る', expected: true, actual: b1.game_id === p1.game_id });
-  //   11月1日には、ひとりの記録に第1試合がすでにあるので、g1（第1試合）は第2試合、g2（第2試合）は第3試合になる
+  //   11月1日には、個人用の記録に第1試合がすでにあるので、g1（第1試合）は第2試合、g2（第2試合）は第3試合になる
   results.push({ title: '番号が重なるときは次の番号（第2試合・第3試合）', expected: '2/3', actual: Number(c1.game_number) + '/' + Number(c2.game_number) });
   results.push({ title: '試合の情報（日付・相手・区分・勝敗）を写し、大会の印は外す', expected: '2026-11-01/ABCクラブ/official/win/',
     actual: [dateText_(c1.game_date), c1.opponent, c1.category, c1.result, String(c1.tournament_id || '')].join('/') });
   results.push({ title: '数字は変えない（安打2）', expected: 2, actual: Number(b1.hits) });
-  // 退会したきむらと、30日より前の成績だけのなかのにも、ひとりの記録が自動でできて、成績が移る
+  // 退会したきむらと、30日より前の成績だけのなかのにも、個人用の記録が自動でできて、成績が移る
   const xSolo = findSoloOf_(x.userId), nSolo = findSoloOf_(n.userId);
-  results.push({ title: '退会した人の成績も、自動で作ったひとりの記録に移る', expected: true, actual: Boolean(xSolo) && gameOf(findBat(rx.record_id).game_id).team_id === xSolo.team_id });
+  results.push({ title: '退会した人の成績も、自動で作った個人用の記録に移る', expected: true, actual: Boolean(xSolo) && gameOf(findBat(rx.record_id).game_id).team_id === xSolo.team_id });
   results.push({ title: '30日より前の成績も移る', expected: true, actual: Boolean(nSolo) && gameOf(findBat(rn.record_id).game_id).team_id === nSolo.team_id });
   const mine = act('getMyStats', { season: 'all' }, m);
   results.push({ title: '移したあとも、自分の成績の合計は同じ（打数6・安打3）', expected: '6/3', actual: mine.batting.at_bats + '/' + mine.batting.hits });
@@ -132,7 +132,7 @@ function testDeleteScenario_(results) {
   results.push({ title: '消した大会は、参加者の一覧からも消える', expected: false, actual: act('listMyTeams', {}, m).teams.some(function (t) { return t.teamId === tour.team_id; }) });
   results.push({ title: '消した大会の番号は、また使える', expected: 'true', actual: String(Boolean(createTestTeam_(o, '999999942', '大会を使い直す', 'たいかい99', 'tournament').team)) });
 
-  // ---------- ひとりの記録の成績を、チームに移す ----------
+  // ---------- 個人用の記録の成績を、チームに移す ----------
   const gB1 = createTestGame_(o, teamB.team_id, '2026-11-01', T);
   const gB2 = createTestGame_(o, teamB.team_id, '2026-11-01', T);
   const gOld = createTestGame_(o, teamB.team_id, '2026-10-02', '2026-10-02');
@@ -142,7 +142,7 @@ function testDeleteScenario_(results) {
   })(), m, { today: '2026-10-02' }).record;
   const list = act('listSoloMoveTargets', {}, m);
   const item = function (type, id) { return list.records.filter(function (r) { return r.record_type === type && r.record_id === id; })[0]; };
-  results.push({ title: '移せる記録の一覧：ひとりの記録の成績4件（打撃3・投手1）', expected: 4, actual: list.records.length });
+  results.push({ title: '移せる記録の一覧：個人用の記録の成績4件（打撃3・投手1）', expected: 4, actual: list.records.length });
   results.push({ title: '11月1日の記録の移す先は、チームBの同じ日の試合2つ', expected: '1,2', actual: item('batting', rm1.record_id).candidates.map(function (c) { return c.game_number; }).join(',') });
   results.push({ title: 'ほかの日の試合は、移す先に出ない', expected: '1', actual: item('batting', rOld.record_id).candidates.map(function (c) { return c.game_number; }).join(',') });
   const mv = function (moves) { return act('moveSoloRecords', { moves: moves }, m); };
@@ -169,11 +169,11 @@ function testDeleteScenario_(results) {
     { record_type: 'batting', record_id: rm2.record_id, game_id: gB2.game_id },
     { record_type: 'batting', record_id: rOld.record_id, game_id: gOld.game_id },
   ]);
-  results.push({ title: 'まとめて4件移せる（30日より前の記録も。空になったひとりの記録の試合3つは消す）', expected: '4/3', actual: ok.moved + '/' + ok.deletedSoloGames });
+  results.push({ title: 'まとめて4件移せる（30日より前の記録も。空になった個人用の記録の試合3つは消す）', expected: '4/3', actual: ok.moved + '/' + ok.deletedSoloGames });
   results.push({ title: '移した記録は、チームBの試合に付く', expected: 'true/true/true/true', actual: [findBat(rm1.record_id).game_id === gB1.game_id, findPit(pm1.record_id).game_id === gB1.game_id,
     findBat(rm2.record_id).game_id === gB2.game_id, findBat(rOld.record_id).game_id === gOld.game_id].join('/') });
-  results.push({ title: '移したあと、ひとりの記録に移せる成績は残っていない', expected: 0, actual: act('listSoloMoveTargets', {}, m).records.length });
+  results.push({ title: '移したあと、個人用の記録に移せる成績は残っていない', expected: 0, actual: act('listSoloMoveTargets', {}, m).records.length });
   const rankNames = act('getTeamRanking', { team_id: teamB.team_id, season: 'all' }, o).categories.hits.rows.map(function (r) { return r.displayName; }).join(',');
   results.push({ title: '移した成績は、チームのランキングに入る', expected: true, actual: rankNames.indexOf('みやた') !== -1 });
-  results.push({ title: 'ひとりの記録には、前からあった空の第1試合だけが残る', expected: 1, actual: activeGamesOf_(mSolo.team_id).length });
+  results.push({ title: '個人用の記録には、前からあった空の第1試合だけが残る', expected: 1, actual: activeGamesOf_(mSolo.team_id).length });
 }

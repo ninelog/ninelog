@@ -82,7 +82,7 @@ function testLeaveScenario_(results) {
   results.push({ title: '代表者は退会できない', expected: 'FORBIDDEN', actual: codeOf(act('leaveTeam', { team_id: team.team_id }, o)) });
   results.push({ title: '大会の代表者も退会できない', expected: 'FORBIDDEN', actual: codeOf(act('leaveTeam', { team_id: tour.team_id }, o)) });
   const solo = act('startSolo', {}, m).team;
-  results.push({ title: 'ひとりの記録は退会できない', expected: 'FORBIDDEN', actual: codeOf(act('leaveTeam', { team_id: solo.teamId }, m)) });
+  results.push({ title: '個人用の記録は退会できない', expected: 'FORBIDDEN', actual: codeOf(act('leaveTeam', { team_id: solo.teamId }, m)) });
   results.push({ title: '所属していないチームからは退会できない', expected: 'FORBIDDEN', actual: codeOf(act('leaveTeam', { team_id: other.team_id }, m)) });
   results.push({ title: '存在しないIDは断る', expected: 'FORBIDDEN', actual: codeOf(act('leaveTeam', { team_id: 'no-such-team' }, m)) });
   results.push({ title: 'チームのIDを送らなければ断る', expected: 'FORBIDDEN', actual: codeOf(act('leaveTeam', {}, m)) });

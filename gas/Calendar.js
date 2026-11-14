@@ -24,7 +24,7 @@ function handleGetCalendar_(data, user, options) {
   }
   month = String(month);
 
-  // チームと、ひとりの記録（11.8章の6）
+  // チームと、個人用の記録（11.8章の6）
   const myTeams = handleListMyTeams_({}, user).teams.filter(function (t) { return isRecordableOrgType_(t.orgType); });
   let teams = myTeams;
   if (data.team_id !== undefined && data.team_id !== null && data.team_id !== '') {

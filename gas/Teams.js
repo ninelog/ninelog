@@ -3,8 +3,8 @@
  *
  * teams シートは「組織」の表で、org_type 列でチーム（team）と大会（tournament）を区別する。
  * 番号・合言葉・参加のしかたは、チームも大会も同じ。番号は同じ表の中で重ならない。
- * 成績を付けられるのはチームと「ひとりの記録」（大会は、試合に結びつけて使う）。
- * 2026-11-14 B-19：3つめの種類「ひとり」（solo）を足した。本人だけがメンバー（代表者）の記録場所で、
+ * 成績を付けられるのはチームと「個人用の記録」（大会は、試合に結びつけて使う）。
+ * 2026-11-14 B-19：3つめの種類「個人用の記録」（solo。最初の名前は「個人用の記録」）を足した。本人だけがメンバー（代表者）の記録場所で、
  *   番号・合言葉は持たず、誰も参加できない。ランキング・チーム全体の成績には出さない（11.8章）。
  *
  * B-6：作成、自分の一覧／B-6追加（Join.js）：参加、合言葉の変更／B-10a：組織の種類
@@ -14,11 +14,11 @@
 const ORG_TYPE = {
   TEAM: 'team',
   TOURNAMENT: 'tournament',
-  SOLO: 'solo', // ひとりの記録（11.8章。B-19）
+  SOLO: 'solo', // 個人用の記録（11.8章。B-19）
 };
 
-/** ひとりの記録場所の名前（固定。11.8章の2） */
-const SOLO_NAME = 'ひとりの記録';
+/** 個人用の記録場所の名前（固定。11.8章の2） */
+const SOLO_NAME = '個人用の記録';
 
 /** シートの org_type を読む（空の古い行はチームとして扱う） */
 function orgTypeOf_(team) {
@@ -27,14 +27,14 @@ function orgTypeOf_(team) {
   return ORG_TYPE.TEAM;
 }
 
-/** 試合を作って成績を付けられる種類か（チームと、ひとりの記録） */
+/** 試合を作って成績を付けられる種類か（チームと、個人用の記録） */
 function isRecordableOrgType_(orgType) {
   return orgType === ORG_TYPE.TEAM || orgType === ORG_TYPE.SOLO;
 }
 
 /** 画面の文言に使う名前（「チーム」または「大会」） */
 function orgLabel_(orgType) {
-  if (orgType === ORG_TYPE.SOLO) return 'ひとりの記録';
+  if (orgType === ORG_TYPE.SOLO) return '個人用の記録';
   return orgType === ORG_TYPE.TOURNAMENT ? '大会' : 'チーム';
 }
 
@@ -191,15 +191,17 @@ function toTeamSummary_(team, role) {
   return {
     teamId: team.team_id,
     teamNumber: String(team.team_number),
-    teamName: String(team.team_name),
+    // 個人用の記録は、シートに入っている名前ではなく、いまの名前（SOLO_NAME）で返す。
+    // 2026-11-15 に「ひとりの記録」から名前を変えたので、前に作った行（シートには「ひとりの記録」）も新しい名前で出るように
+    teamName: orgTypeOf_(team) === ORG_TYPE.SOLO ? SOLO_NAME : String(team.team_name),
     orgType: orgTypeOf_(team),
     role: role,
   };
 }
 
 /**
- * そのIDの組織が、成績を付けられる種類（チーム・ひとりの記録）で、本人が所属しているか。
- * （B-19 から、ひとりの記録も含む。ひとりの記録は本人しかメンバーにならない）
+ * そのIDの組織が、成績を付けられる種類（チーム・個人用の記録）で、本人が所属しているか。
+ * （B-19 から、個人用の記録も含む。個人用の記録は本人しかメンバーにならない）
  */
 function isMemberOfTeamType_(userId, teamId) {
   if (!findMembership_(userId, teamId)) return false;
@@ -208,7 +210,7 @@ function isMemberOfTeamType_(userId, teamId) {
 }
 
 /**
- * 操作：startSolo（ひとりで記録する。11.8章。B-19）
+ * 操作：startSolo（個人用の記録を始める。11.8章。B-19）
  * 本人専用の記録場所を作る。1人に1つだけで、すでにあれば、それを返す（created: false）。
  * 番号と合言葉は持たないので、誰も参加できない。
  * @return {{ created: boolean, team: Object }}
@@ -220,8 +222,8 @@ function handleStartSolo_(data, user) {
 }
 
 /**
- * ひとりの記録場所を作る（本人が代表者のメンバー1行も足す）。
- * startSolo のほか、チームを消すときに、ひとりの記録が無いメンバーの分を自動で作るのにも使う（B-21）。
+ * 個人用の記録場所を作る（本人が代表者のメンバー1行も足す）。
+ * startSolo のほか、チームを消すときに、個人用の記録が無いメンバーの分を自動で作るのにも使う（B-21）。
  * @return {Object} 作った teams の行
  */
 function createSolo_(userId, now) {
@@ -247,7 +249,7 @@ function createSolo_(userId, now) {
   return team;
 }
 
-/** 本人のひとりの記録場所（無ければ null） */
+/** 本人の個人用の記録場所（無ければ null） */
 function findSoloOf_(userId) {
   return findRecord_(CONFIG.SHEET.TEAMS, function (t) {
     return orgTypeOf_(t) === ORG_TYPE.SOLO && t.created_by === userId;

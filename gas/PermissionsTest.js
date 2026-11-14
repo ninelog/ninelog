@@ -146,25 +146,25 @@ function testPermissionsScenario_(results) {
   expectRefused('カレンダー：所属していないチーム', 'FORBIDDEN', act('getCalendar', { team_id: teamY.team_id }, m));
   expectRefused('チームのランキング：管理者でも所属していないチームは見られない', 'FORBIDDEN', act('getTeamRanking', { team_id: teamY.team_id }, m, true));
 
-  // ---------- ひとりの記録（B-19）：他人のひとりの記録には触れられない ----------
+  // ---------- 個人用の記録（B-19）：他人の個人用の記録には触れられない ----------
   const soloA = act('startSolo', {}, a).team;
   const soloM = act('startSolo', {}, m).team;
-  results.push({ title: 'ひとりの記録：作る操作は、本人の記録場所だけを返す', expected: true, actual: soloA.teamId !== soloM.teamId });
-  expectRefused('ひとりの記録：他人の記録場所に試合を作れない', 'FORBIDDEN', act('createGame', { team_id: soloA.teamId, game_date: '2026-11-03' }, m));
-  expectRefused('ひとりの記録：他人の記録場所の試合の一覧は見られない', 'FORBIDDEN', act('listTeamGames', { team_id: soloA.teamId }, m));
-  expectRefused('ひとりの記録：他人の記録場所を自分の成績の範囲にできない', 'FORBIDDEN', act('getMyStats', { team_id: soloA.teamId }, m));
-  expectRefused('ひとりの記録：他人の記録場所のカレンダーは見られない', 'FORBIDDEN', act('getCalendar', { team_id: soloA.teamId }, m));
-  expectRefused('ひとりの記録：管理者でも、他人の記録場所に試合を作れない', 'FORBIDDEN', act('createGame', { team_id: soloA.teamId, game_date: '2026-11-03' }, m, true));
-  expectRefused('ひとりの記録：自分の記録場所でも、ランキングには使えない', 'FORBIDDEN', act('getTeamRanking', { team_id: soloM.teamId }, m));
+  results.push({ title: '個人用の記録：作る操作は、本人の記録場所だけを返す', expected: true, actual: soloA.teamId !== soloM.teamId });
+  expectRefused('個人用の記録：他人の記録場所に試合を作れない', 'FORBIDDEN', act('createGame', { team_id: soloA.teamId, game_date: '2026-11-03' }, m));
+  expectRefused('個人用の記録：他人の記録場所の試合の一覧は見られない', 'FORBIDDEN', act('listTeamGames', { team_id: soloA.teamId }, m));
+  expectRefused('個人用の記録：他人の記録場所を自分の成績の範囲にできない', 'FORBIDDEN', act('getMyStats', { team_id: soloA.teamId }, m));
+  expectRefused('個人用の記録：他人の記録場所のカレンダーは見られない', 'FORBIDDEN', act('getCalendar', { team_id: soloA.teamId }, m));
+  expectRefused('個人用の記録：管理者でも、他人の記録場所に試合を作れない', 'FORBIDDEN', act('createGame', { team_id: soloA.teamId, game_date: '2026-11-03' }, m, true));
+  expectRefused('個人用の記録：自分の記録場所でも、ランキングには使えない', 'FORBIDDEN', act('getTeamRanking', { team_id: soloM.teamId }, m));
 
   // ---------- 退会（B-20） ----------
   expectRefused('退会：所属していないチームからは退会できない', 'FORBIDDEN', act('leaveTeam', { team_id: teamY.team_id }, m));
   expectRefused('退会：参加していない大会からは退会できない', 'FORBIDDEN', act('leaveTeam', { team_id: tourY.team_id }, m));
-  expectRefused('退会：他人のひとりの記録には触れられない', 'FORBIDDEN', act('leaveTeam', { team_id: soloA.teamId }, m));
+  expectRefused('退会：他人の個人用の記録には触れられない', 'FORBIDDEN', act('leaveTeam', { team_id: soloA.teamId }, m));
   expectRefused('退会：代表者は退会できない', 'FORBIDDEN', act('leaveTeam', { team_id: teamX.team_id }, a));
   expectRefused('退会：管理者でも、所属していないチームからは退会できない', 'FORBIDDEN', act('leaveTeam', { team_id: teamY.team_id }, m, true));
 
-  // ---------- チーム・大会を消す、ひとりの記録から移す（B-21） ----------
+  // ---------- チーム・大会を消す、個人用の記録から移す（B-21） ----------
   expectRefused('消す前の確認：メンバーは見られない', 'FORBIDDEN', act('getDeletePreview', { team_id: teamX.team_id }, m));
   expectRefused('消す前の確認：所属していないチーム', 'FORBIDDEN', act('getDeletePreview', { team_id: teamY.team_id }, m));
   expectRefused('消す前の確認：管理者でも、代表者でなければ見られない', 'FORBIDDEN', act('getDeletePreview', { team_id: teamY.team_id }, m, true));
@@ -172,11 +172,11 @@ function testPermissionsScenario_(results) {
   expectRefused('消す：参加者は大会を消せない', 'FORBIDDEN', act('deleteTeam', { team_id: tourX.team_id, confirm_name: '権限大会X' }, m));
   expectRefused('消す：所属していないチーム', 'FORBIDDEN', act('deleteTeam', { team_id: teamY.team_id, confirm_name: '権限Y', owner_records: 'move' }, m));
   expectRefused('消す：管理者でも、代表者でなければ消せない', 'FORBIDDEN', act('deleteTeam', { team_id: teamY.team_id, confirm_name: '権限Y', owner_records: 'move' }, m, true));
-  expectRefused('消す：他人のひとりの記録には触れられない', 'FORBIDDEN', act('deleteTeam', { team_id: soloA.teamId, confirm_name: 'ひとりの記録' }, m));
-  expectRefused('消す：自分のひとりの記録も消せない', 'FORBIDDEN', act('deleteTeam', { team_id: soloM.teamId, confirm_name: 'ひとりの記録' }, m));
+  expectRefused('消す：他人の個人用の記録には触れられない', 'FORBIDDEN', act('deleteTeam', { team_id: soloA.teamId, confirm_name: '個人用の記録' }, m));
+  expectRefused('消す：自分の個人用の記録も消せない', 'FORBIDDEN', act('deleteTeam', { team_id: soloM.teamId, confirm_name: '個人用の記録' }, m));
   results.push({ title: '断ったあとも、チームXは残っている', expected: true, actual: Boolean(findTeamByNumber_('999999931')) });
   expectRefused('移す：他人の記録は移せない', 'FORBIDDEN', act('moveSoloRecords', { moves: [{ record_type: 'batting', record_id: recA.record_id, game_id: gx.game_id }] }, m));
-  expectRefused('移す：ひとりの記録ではない自分の記録は移せない', 'FORBIDDEN', act('moveSoloRecords', { moves: [{ record_type: 'batting', record_id: recM.record_id, game_id: gx.game_id }] }, m));
+  expectRefused('移す：個人用の記録ではない自分の記録は移せない', 'FORBIDDEN', act('moveSoloRecords', { moves: [{ record_type: 'batting', record_id: recM.record_id, game_id: gx.game_id }] }, m));
   expectRefused('移す：管理者でも他人の記録は移せない', 'FORBIDDEN', act('moveSoloRecords', { moves: [{ record_type: 'batting', record_id: recO.record_id, game_id: gx.game_id }] }, m, true));
 
   // ---------- まとめ（B-22）：まとめても、1件ずつのときと同じ決まり ----------

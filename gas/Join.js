@@ -37,7 +37,7 @@ function handleJoinTeam_(data, user, options) {
   //   自動テストからは、自動テスト専用の番号のチームにしか参加できない。
   const allowed = forAutomatedTest ? isTestTeamNumber_(teamNumber) : !isTestTeamNumber_(teamNumber);
   const found = allowed ? findTeamByNumber_(teamNumber) : null;
-  // ひとりの記録には誰も参加できない（番号を持たないので見つからないはずだが、念のため。11.8章の3）
+  // 個人用の記録には誰も参加できない（番号を持たないので見つからないはずだが、念のため。11.8章の3）
   const team = found && orgTypeOf_(found) !== ORG_TYPE.SOLO ? found : null;
   const correct = Boolean(team) && passphraseMatches_(data.passphrase, team.passphrase_salt, team.passphrase_hash);
 
@@ -85,7 +85,7 @@ function handleChangePassphrase_(data, user) {
     throw new AppError(APP_ERROR.FORBIDDEN, '合言葉を変えられるのは、そのチームの代表者だけです');
   }
   const team = findRecord_(CONFIG.SHEET.TEAMS, function (t) { return t.team_id === teamId; });
-  // ひとりの記録には合言葉が無い（誰も参加できない。11.8章の3）
+  // 個人用の記録には合言葉が無い（誰も参加できない。11.8章の3）
   if (!team || orgTypeOf_(team) === ORG_TYPE.SOLO) {
     throw new AppError(APP_ERROR.FORBIDDEN, '合言葉を変えられるのは、そのチームの代表者だけです');
   }
@@ -104,7 +104,7 @@ function handleChangePassphrase_(data, user) {
  * 操作：leaveTeam（チーム・大会から退会する。B-20。2026-11-14 利用者が追加）
  * data: { team_id: 'チームまたは大会のID' }
  * - 退会しても、成績（打撃・投手）と試合は消さない。チーム全体の成績には残り、ランキングには載らなくなる。
- * - 代表者は退会できない（代表を譲る機能は初版では作らない）。ひとりの記録は退会できない。
+ * - 代表者は退会できない（代表を譲る機能は初版では作らない）。個人用の記録は退会できない。
  * - memberships の行を消すので、同じ番号と合言葉で、もう一度参加できる。
  * - 所属していないチーム・存在しないIDは、どれも同じ返事（FORBIDDEN）。
  */
@@ -116,7 +116,7 @@ function handleLeaveTeam_(data, user) {
     throw new AppError(APP_ERROR.FORBIDDEN, '所属していないチーム・大会からは退会できません');
   }
   if (orgTypeOf_(team) === ORG_TYPE.SOLO) {
-    throw new AppError(APP_ERROR.FORBIDDEN, 'ひとりの記録は退会できません');
+    throw new AppError(APP_ERROR.FORBIDDEN, '個人用の記録は退会できません');
   }
   if (membership.role === 'owner') {
     throw new AppError(APP_ERROR.FORBIDDEN, '代表者は退会できません');
