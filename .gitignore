@@ -16,3 +16,6 @@ CLAUDE.local.md
 node_modules/
 Thumbs.db
 desktop.ini
+
+# 利用規約の文章の元（文章は terms.html に入れた。C-14）
+terms-source.md

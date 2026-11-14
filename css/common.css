@@ -467,3 +467,24 @@ a.nl-chip { text-decoration: none; display: inline-flex; align-items: center; }
   max-width: calc(100vw - 48px);
 }
 .is-loading > :not(.nl-busy) { opacity: .45; transition: opacity .2s; pointer-events: none; }
+
+/* ---------- 利用規約・プライバシーポリシー（C-14。terms.html） ---------- */
+.nl-terms { font-size: 15px; line-height: 1.8; }
+.nl-terms .nl-card h2 { font-size: 18px; margin-bottom: 8px; }
+.nl-terms h3 { font-size: 15px; margin: 20px 0 4px; }
+.nl-terms p { margin: 4px 0 8px; }
+.nl-terms ol { margin: 4px 0 8px; padding-left: 1.6em; }
+.nl-terms li { margin: 2px 0; }
+.nl-terms section { scroll-margin-top: calc(var(--header-h) + 8px); }
+.nl-terms__toc { display: flex; gap: 8px; padding: 12px; }
+.nl-terms__toc a {
+  flex: 1; text-align: center; padding: 8px 4px; border-radius: 8px;
+  background: var(--accent-soft); color: var(--accent); font-weight: 700; font-size: 14px; text-decoration: none;
+}
+.nl-terms__table { width: 100%; border-collapse: collapse; font-size: 14px; line-height: 1.6; margin: 4px 0 8px; }
+.nl-terms__table th, .nl-terms__table td { padding: 8px 6px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+.nl-terms__table th { color: var(--sub); font-weight: 400; font-size: 13px; }
+.nl-terms__table td:first-child { width: 42%; }
+.nl-terms__enact { text-align: right; color: var(--sub); margin-top: 20px; }
+.nl-terms-link { text-align: center; margin-top: 8px; }
+.nl-terms-link a { color: var(--sub); }
