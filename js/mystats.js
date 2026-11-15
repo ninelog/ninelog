@@ -439,9 +439,13 @@
       a.href = 'input.html?' + params.toString();
       const actions = el('div', 'nl-row__actions');
       actions.appendChild(a);
+      actions.appendChild(gameDetailLink(g.game_id)); // 試合の詳細（C-15）
       row.appendChild(actions);
     } else {
       row.appendChild(el('p', 'nl-note', '試合日から30日を過ぎたので、入力・修正はできません。'));
+      const only = el('div', 'nl-row__actions');
+      only.appendChild(gameDetailLink(g.game_id));
+      row.appendChild(only);
     }
     return row;
   }
@@ -453,6 +457,13 @@
       ['hbp', '死球'], ['sacrifice_bunts', '犠打'], ['sacrifice_flies', '犠飛'], ['strikeouts', '三振'], ['stolen_bases', '盗塁']]
       .forEach(function (f) { if (Number(b[f[0]])) parts.push(f[1] + b[f[0]]); });
     return parts.join('　');
+  }
+
+  /** 「試合の詳細」を開くボタン（リンク。2026-11-15。C-15） */
+  function gameDetailLink(gameId) {
+    const a = el('a', 'nl-chip', '試合の詳細');
+    a.href = 'game.html?game=' + encodeURIComponent(gameId);
+    return a;
   }
 
   /* ---------- 入力した成績の一覧（C-10。3.4章・4.5b章） ---------- */
@@ -534,11 +545,17 @@
     const k = REC_KINDS[kind];
     row.appendChild(el('p', 'nl-day__line', kind === 'pitching' ? r.innings_text + '　自責点' + r.earned_runs : battingLine(r)));
 
+    // 試合の詳細（2026-11-15。C-15）：30日を過ぎた記録でも開ける
+    const detail = gameDetailLink(r.game_id);
     if (!r.editable) {
       row.appendChild(el('p', 'nl-note', '試合日から30日を過ぎたので、直したり消したりできません。'));
+      const only = el('div', 'nl-row__actions');
+      only.appendChild(detail);
+      row.appendChild(only);
       return row;
     }
     const actions = el('div', 'nl-row__actions');
+    actions.appendChild(detail);
     // 直す：「成績を入力」で、この試合を選んだ状態で開く（C-6b と同じ）
     const edit = el('a', 'nl-chip', '直す');
     const params = { team: r.team_id, date: r.game_date, game: r.game_id };

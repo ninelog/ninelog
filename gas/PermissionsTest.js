@@ -32,7 +32,7 @@ function permissionCheckedActions_() {
     'whoami', 'updateMyName', 'createTeam', 'listMyTeams', 'joinTeam', 'changePassphrase', 'startSolo', 'leaveTeam',
     'addBattingRecord', 'listMyBattingRecords', 'updateBattingRecord', 'deleteBattingRecord',
     'addPitchingRecord', 'listMyPitchingRecords', 'updatePitchingRecord', 'deletePitchingRecord',
-    'getMyStats', 'getTeamRanking', 'getTournamentRanking', 'getTeamStats', 'getCalendar',
+    'getMyStats', 'getTeamRanking', 'getTournamentRanking', 'getTeamStats', 'getCalendar', 'getGameDetail',
     'createGame', 'listTeamGames', 'updateGame', 'deleteGame',
     'getDeletePreview', 'deleteTeam', 'listSoloMoveTargets', 'moveSoloRecords', 'batch',
   ];
@@ -145,6 +145,9 @@ function testPermissionsScenario_(results) {
   expectRefused('チーム全体の成績：所属していないチーム', 'FORBIDDEN', act('getTeamStats', { team_id: teamY.team_id }, m));
   expectRefused('カレンダー：所属していないチーム', 'FORBIDDEN', act('getCalendar', { team_id: teamY.team_id }, m));
   expectRefused('チームのランキング：管理者でも所属していないチームは見られない', 'FORBIDDEN', act('getTeamRanking', { team_id: teamY.team_id }, m, true));
+  expectRefused('試合の詳細：所属していないチームの試合', 'FORBIDDEN', act('getGameDetail', { game_id: gy.game_id }, m));
+  expectRefused('試合の詳細：存在しない試合', 'FORBIDDEN', act('getGameDetail', { game_id: 'no-such-game' }, m));
+  expectRefused('試合の詳細：管理者でも所属していないチームの試合は見られない', 'FORBIDDEN', act('getGameDetail', { game_id: gy.game_id }, m, true));
 
   // ---------- 個人用の記録（B-19）：他人の個人用の記録には触れられない ----------
   const soloA = act('startSolo', {}, a).team;
@@ -156,6 +159,8 @@ function testPermissionsScenario_(results) {
   expectRefused('個人用の記録：他人の記録場所のカレンダーは見られない', 'FORBIDDEN', act('getCalendar', { team_id: soloA.teamId }, m));
   expectRefused('個人用の記録：管理者でも、他人の記録場所に試合を作れない', 'FORBIDDEN', act('createGame', { team_id: soloA.teamId, game_date: '2026-11-03' }, m, true));
   expectRefused('個人用の記録：自分の記録場所でも、ランキングには使えない', 'FORBIDDEN', act('getTeamRanking', { team_id: soloM.teamId }, m));
+  const soloGameA = act('createGame', { team_id: soloA.teamId, game_date: '2026-11-03' }, a).game;
+  expectRefused('試合の詳細：他人の個人用の記録の試合は見られない', 'FORBIDDEN', act('getGameDetail', { game_id: soloGameA.game_id }, m));
 
   // ---------- 退会（B-20） ----------
   expectRefused('退会：所属していないチームからは退会できない', 'FORBIDDEN', act('leaveTeam', { team_id: teamY.team_id }, m));
@@ -203,6 +208,7 @@ function testPermissionsScenario_(results) {
     getTournamentRanking: act('getTournamentRanking', { tournament_id: tourX.team_id }, m),
     getTeamStats: act('getTeamStats', { team_id: teamX.team_id }, m),
     getCalendar: act('getCalendar', { month: '2026-11' }, m),
+    getGameDetail: act('getGameDetail', { game_id: gx.game_id }, m),
     listSoloMoveTargets: act('listSoloMoveTargets', {}, m),
     getDeletePreview: act('getDeletePreview', { team_id: teamX.team_id }, a),
   };

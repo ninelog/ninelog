@@ -42,6 +42,7 @@ function testAllNames_() {
     'testWebhook',         // B-23 公式LINEのトークへの返信
     'testSheetCache',      // B-24 GASの中にシートの中身を覚える
     'testPurge',           // B-25 公開前にテストのデータを消す仕組み
+    'testGameDetail',      // B-26 試合の詳細
   ];
 }
 

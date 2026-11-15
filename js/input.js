@@ -328,6 +328,7 @@
     $('selected-title').textContent = dateLabel(g.game_date) + '　' + gameTitle(g);
     $('selected-sub').textContent = (team ? team.teamName : '') + (g.tournament_name ? '　／　' + g.tournament_name : '');
     $('selected-reflect').textContent = reflectText(g, team);
+    $('btn-game-detail').href = 'game.html?game=' + encodeURIComponent(g.game_id); // 試合の詳細（C-15）
     // 大会に参加していない人には、大会のランキングに載らないことを知らせる（11.7章のK）
     const note = $('selected-note');
     note.hidden = !(g.tournament_id && !g.in_my_tournament);

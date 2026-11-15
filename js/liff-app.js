@@ -92,7 +92,7 @@ const NinelogApp = (function () {
   /** まとめてよい操作（書き込まない操作だけ。GASも書き込む操作は断る） */
   const BATCHABLE = {
     whoami: 1, listMyTeams: 1, listMyBattingRecords: 1, listMyPitchingRecords: 1, getMyStats: 1,
-    getTeamRanking: 1, getTournamentRanking: 1, getTeamStats: 1, getCalendar: 1, listTeamGames: 1,
+    getTeamRanking: 1, getTournamentRanking: 1, getTeamStats: 1, getCalendar: 1, listTeamGames: 1, getGameDetail: 1,
     getDeletePreview: 1, listSoloMoveTargets: 1,
   };
   const BATCH_MAX = 10;   // GASの決まりと同じ

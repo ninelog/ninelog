@@ -526,3 +526,23 @@ body.nl-modal-open { overflow: hidden; }
   display: flex; align-items: center; gap: 8px; margin: 10px 0 2px; font-size: 12px; font-weight: 700; color: var(--sub);
 }
 .nl-year-sep::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
+
+/* ---------- 試合の詳細（2026-11-15。game.html） ---------- */
+.nl-back { margin: 0 0 8px; font-size: 14px; }
+.nl-back a { color: var(--accent); text-decoration: none; font-weight: 700; }
+.nl-game__date { margin: 0; font-size: 13px; color: var(--sub); }
+.nl-game__title { margin: 2px 0 8px; font-size: 18px; word-break: break-all; }
+.nl-table--game { font-size: 13px; }
+.nl-table--game th, .nl-table--game td { padding: 8px 2px; white-space: nowrap; }
+.nl-table--game th { font-size: 12px; }
+.nl-table--game th:first-child, .nl-table--game td:first-child { padding-left: 4px; }
+.nl-table--game td.nl-game__name { white-space: normal; word-break: break-all; min-width: 4.5em; text-align: left; }
+.nl-table--game .nl-badge--me { display: table; margin: 2px 0 0; font-size: 10px; padding: 0 6px; }
+.nl-table--game tr.is-me td { background: var(--accent-soft); }
+.nl-table--game td.is-sorted { font-weight: 700; color: var(--accent); }
+.nl-game__medal { margin-right: 2px; }
+.nl-game__left { color: var(--sub); }
+.nl-badge--me { margin-left: 4px; background: var(--accent); color: var(--accent-text); }
+.nl-badge--win { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+.nl-game__foot { text-align: center; margin: 0 0 16px; }
+#bat-sort { margin-bottom: 8px; }

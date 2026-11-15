@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>試合の詳細｜ナインログ</title>
+  <link rel="stylesheet" href="css/common.css">
+  <!--
+    試合の詳細（2026-11-15 利用者が追加。C-15。CLAUDE.md 11.12章）
+    - game.html?game=試合のID で開く。その試合で、チームの誰が何打数何安打だったか（ランキングの「1試合ぶん」）と、投げた人の投球回・自責点
+    - 入口：「自分の成績」の入力した成績の各行・記録カレンダーの試合の行、「成績を入力」で選んだ試合
+    - 見られるのは、今そのチームのメンバーだけ（個人用の記録の試合は本人だけ）。GASの getGameDetail が決める
+  -->
+</head>
+<body>
+  <div id="nl-header"></div>
+  <main class="nl-main">
+    <p class="nl-back"><a href="mystats.html" id="btn-back">‹ もどる</a></p>
+    <div id="nl-alert" hidden></div>
+    <p class="nl-loading" id="loading">読み込み中です…</p>
+
+    <div id="content" hidden>
+      <!-- 試合の情報 -->
+      <section class="nl-card" id="game-card">
+        <p class="nl-game__date" id="game-date"></p>
+        <h2 class="nl-game__title" id="game-title"></h2>
+        <div class="nl-badges" id="game-badges"></div>
+      </section>
+
+      <!-- 打撃 -->
+      <section class="nl-card" id="bat-card">
+        <h2>打撃</h2>
+        <div class="nl-seg" id="bat-sort" role="group" aria-label="並べ替え">
+          <button type="button" class="nl-seg__btn" data-sort="avg" aria-pressed="true">打率</button>
+          <button type="button" class="nl-seg__btn" data-sort="hits" aria-pressed="false">安打</button>
+          <button type="button" class="nl-seg__btn" data-sort="rbis" aria-pressed="false">打点</button>
+        </div>
+        <div class="nl-table-wrap">
+          <table class="nl-table nl-table--game">
+            <thead>
+              <tr><th>名前</th><th>打席</th><th>打数</th><th>安打</th><th>本塁</th><th>打点</th><th>盗塁</th><th>打率</th></tr>
+            </thead>
+            <tbody id="bat-rows"></tbody>
+          </table>
+        </div>
+        <p class="nl-note" id="bat-note"></p>
+      </section>
+
+      <!-- 投手 -->
+      <section class="nl-card" id="pit-card">
+        <h2>投手</h2>
+        <div class="nl-table-wrap">
+          <table class="nl-table nl-table--game">
+            <thead><tr><th>名前</th><th>投球回</th><th>自責点</th></tr></thead>
+            <tbody id="pit-rows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <p class="nl-note nl-game__foot">まだ入力していない人は、ここに出ません。</p>
+    </div>
+  </main>
+
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/liff-app.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>

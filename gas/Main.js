@@ -52,6 +52,7 @@ function getActions_() {
     getTournamentRanking: { handler: handleGetTournamentRanking_, write: false },
     getTeamStats: { handler: handleGetTeamStats_, write: false },
     getCalendar: { handler: handleGetCalendar_, write: false },
+    getGameDetail: { handler: handleGetGameDetail_, write: false }, // 試合の詳細（B-26）
     createGame: { handler: handleCreateGame_, write: true },
     listTeamGames: { handler: handleListTeamGames_, write: false },
     updateGame: { handler: handleUpdateGame_, write: true },
