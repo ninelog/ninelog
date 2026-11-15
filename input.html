@@ -86,13 +86,24 @@
         </select>
       </div>
       <div class="nl-field">
+        <!-- 得点（2026-11-15 利用者が追加。空でもよい。両方入れると勝敗は得点から決まる） -->
+        <label>得点（空でもよい）</label>
+        <div class="nl-score">
+          <label><span class="nl-score__who">自分たち</span><input type="text" inputmode="numeric" maxlength="2" id="our-score" name="our_score" autocomplete="off"></label>
+          <span class="nl-score__dash">−</span>
+          <label><span class="nl-score__who">相手</span><input type="text" inputmode="numeric" maxlength="2" id="opp-score" name="opp_score" autocomplete="off"></label>
+        </div>
+        <p class="nl-note">0〜99。両方入れると、勝敗は得点から自動で決まります（多いほうが勝ち、同じなら引き分け）。試合の前に作るときは空のままにして、あとで「試合の情報を直す」から入れてください。</p>
+      </div>
+      <div class="nl-field">
         <label for="result">勝敗（あとで直せます）</label>
-        <select id="result" name="result">
+        <select id="result" name="result" aria-describedby="result-auto">
           <option value="">（未入力）</option>
           <option value="win">勝ち</option>
           <option value="lose">負け</option>
           <option value="draw">引き分け</option>
         </select>
+        <p class="nl-note" id="result-auto" hidden>得点から自動で決まりました（得点を空にすると、選べるようになります）。</p>
       </div>
       <div class="nl-actions">
         <button type="submit" class="nl-btn" id="btn-create">試合を作る</button>
@@ -105,6 +116,8 @@
       <h2>2. 成績を入れる試合</h2>
       <p class="nl-choice__title" id="selected-title"></p>
       <p class="nl-choice__sub" id="selected-sub"></p>
+      <!-- 勝敗と得点（○ 5−3。2026-11-15） -->
+      <div class="nl-badges" id="selected-result" hidden></div>
       <!-- 成績がどこに反映されるか（2026-11-14 利用者が決定） -->
       <p class="nl-alert nl-alert--info" id="selected-reflect" style="margin:12px 0 0"></p>
       <p class="nl-note" id="selected-note" hidden></p>
@@ -155,13 +168,24 @@
           </select>
         </div>
         <div class="nl-field">
+          <!-- 得点（2026-11-15 利用者が追加。空でもよい。両方入れると勝敗は得点から決まる） -->
+          <label>得点（空でもよい）</label>
+          <div class="nl-score">
+            <label><span class="nl-score__who">自分たち</span><input type="text" inputmode="numeric" maxlength="2" id="edit-our-score" name="our_score" autocomplete="off"></label>
+            <span class="nl-score__dash">−</span>
+            <label><span class="nl-score__who">相手</span><input type="text" inputmode="numeric" maxlength="2" id="edit-opp-score" name="opp_score" autocomplete="off"></label>
+          </div>
+          <p class="nl-note">0〜99。両方入れると、勝敗は得点から自動で決まります（多いほうが勝ち、同じなら引き分け）。</p>
+        </div>
+        <div class="nl-field">
           <label for="edit-result">勝敗</label>
-          <select id="edit-result" name="result">
+          <select id="edit-result" name="result" aria-describedby="edit-result-auto">
             <option value="">（未入力）</option>
             <option value="win">勝ち</option>
             <option value="lose">負け</option>
             <option value="draw">引き分け</option>
           </select>
+          <p class="nl-note" id="edit-result-auto" hidden>得点から自動で決まりました（得点を空にすると、選べるようになります）。</p>
         </div>
         <p class="nl-note">直した内容は記録に残ります（いつ・だれが・何を何から何に変えたか）。</p>
         <div class="nl-actions">

@@ -118,6 +118,30 @@ function runGameTests_(results) {
   const reuse = create(member, { team_id: team.team_id, game_date: TODAY, game_number: 2 });
   results.push({ title: '消した試合の番号（第2試合）は、また使える', expected: 2, actual: reuse.game && reuse.game.game_number });
 
+  // ---------- 得点（2026-11-15） ----------
+  const s1 = create(creator, { team_id: team.team_id, game_date: '2026-11-07', our_score: 5, opp_score: '3', result: 'lose' });
+  results.push({ title: '得点：両方入れて作ると、勝敗は得点から決まる（送った「負け」は使わない）', expected: '5/3/win', actual: s1.game ? s1.game.our_score + '/' + s1.game.opp_score + '/' + s1.game.result : JSON.stringify(s1) });
+  results.push({ title: '得点：games シートに得点の列（our_score・opp_score）がある（無ければ自動で足す）', expected: '5/3', actual: gameRow(s1.game.game_id).our_score + '/' + gameRow(s1.game.game_id).opp_score });
+  results.push({ title: '得点：空のままでも作れる（勝敗は選んだもの）', expected: 'null/null/draw', actual: (function (r) { return r.game ? r.game.our_score + '/' + r.game.opp_score + '/' + r.game.result : JSON.stringify(r); })(create(creator, { team_id: team.team_id, game_date: '2026-11-07', our_score: '', opp_score: '', result: 'draw' })) });
+  results.push({ title: '得点：片方だけは作れない（空のほうの欄にエラー）', expected: 'opp_score', actual: firstField(create(creator, { team_id: team.team_id, game_date: '2026-11-06', our_score: 2, opp_score: '' })) });
+  results.push({ title: '得点：100は入れられない（0〜99）', expected: 'our_score', actual: firstField(create(creator, { team_id: team.team_id, game_date: '2026-11-06', our_score: 100, opp_score: 1 })) });
+  results.push({ title: '得点：マイナスや小数は入れられない', expected: 'opp_score', actual: firstField(create(creator, { team_id: team.team_id, game_date: '2026-11-06', our_score: 1, opp_score: '1.5' })) });
+  const sid = s1.game.game_id;
+  const sbase = { game_id: sid, game_date: '2026-11-07', game_number: 1, opponent: '', category: '', result: 'win', our_score: 5, opp_score: 3 };
+  const su1 = update(owner, Object.assign({}, sbase, { our_score: 2, opp_score: 2, result: 'win' }));
+  results.push({ title: '得点：代表者が直せて、同じ点なら引き分け', expected: '2/2/draw', actual: su1.game ? su1.game.our_score + '/' + su1.game.opp_score + '/' + su1.game.result : JSON.stringify(su1) });
+  const sLogs = changesOf(sid).map(function (c) { return c.field + ':' + c.old_value + '>' + c.new_value; }).sort().join(',');
+  results.push({ title: '得点：直した得点と勝敗が記録される', expected: 'opp_score:3>2,our_score:5>2,result:win>draw', actual: sLogs });
+  results.push({ title: '得点：一般のメンバーは得点を直せない', expected: 'FORBIDDEN', actual: update(member, Object.assign({}, sbase, { our_score: 9, opp_score: 0 })).code });
+  const su2 = update(creator, { game_id: sid, game_date: '2026-11-07', game_number: 1, opponent: '相手', result: 'lose' });
+  results.push({ title: '得点：送らなければ今のまま（勝敗も得点のまま）', expected: '2/2/draw/相手', actual: su2.game.our_score + '/' + su2.game.opp_score + '/' + su2.game.result + '/' + su2.game.opponent });
+  const su3 = update(creator, { game_id: sid, game_date: '2026-11-07', game_number: 1, opponent: '相手', result: 'lose', our_score: '', opp_score: '' });
+  results.push({ title: '得点：空にすると得点なしになり、勝敗は選んだもの', expected: 'null/null/lose', actual: su3.game.our_score + '/' + su3.game.opp_score + '/' + su3.game.result });
+  const later2 = create(member, { team_id: team.team_id, game_date: '2026-11-05' });
+  const su4 = update(member, { game_id: later2.game.game_id, game_date: '2026-11-05', game_number: 1, opponent: '', category: '', result: '', our_score: '0', opp_score: '7' });
+  results.push({ title: '得点：空で作った試合に、あとから得点を入れられる（0−7で負け）', expected: '0/7/lose', actual: su4.game ? su4.game.our_score + '/' + su4.game.opp_score + '/' + su4.game.result : JSON.stringify(su4) });
+  results.push({ title: '得点：一覧にも得点が出る', expected: '0/7', actual: (function (g) { return g ? g.our_score + '/' + g.opp_score : 'なし'; })(list(member, { team_id: team.team_id, game_date: '2026-11-05' }).games[0]) });
+
   // ---------- 画面からの入口 ----------
   const viaScreen = errorSummary_(function () {
     dispatch_({ action: 'deleteGame', data: { game_id: reuse.game.game_id } }, { userId: 'Utest_gscreen', name: '画面テスト' });

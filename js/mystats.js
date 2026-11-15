@@ -28,7 +28,7 @@
 
   let loading = 0; // 読み込みの番号（あとから始めた読み込みの結果だけを使う）
   let shown = null; // いま画面に出している成績（GASの返事）
-  const breakdown = NinelogBreakdown.create($('bd-card'), { withRecord: false }); // 相手別・大会別（C-6d）
+  const breakdown = NinelogBreakdown.create($('bd-card'), { withRecord: false, dims: ['by_tournament', 'by_category'] }); // 大会別・区分別（C-6d。相手別は 2026-11-15 に外した）
 
   /**
    * restored：「試合の詳細」から戻ってきたときの、開く前の状態（年度・範囲・入力した成績の種類と件数・カレンダーの月と日）。
@@ -332,7 +332,6 @@
 
   /* ---------- 記録カレンダー（C-6b。11.3章・11.0章の16） ---------- */
 
-  const RESULT_LABELS = { win: '勝ち', lose: '負け', draw: '引き分け' };
   const cal = {
     view: null,      // カレンダーの部品（js/calendar.js）
     teamId: null,    // カレンダーに出しているチーム（'' は全チーム。null はまだ読んでいない）
@@ -453,7 +452,8 @@
     const main = el('div', 'nl-row__main');
     main.appendChild(el('span', 'nl-row__name', '第' + g.game_number + '試合　' + (g.opponent ? 'vs ' + g.opponent : '（相手は未入力）')));
     if (g.tournament_name) main.appendChild(el('span', 'nl-badge', g.tournament_name));
-    if (RESULT_LABELS[g.result]) main.appendChild(el('span', 'nl-badge', RESULT_LABELS[g.result]));
+    const rb = NinelogUI.resultBadge(g); // ○ 5−3（2026-11-15）
+    if (rb) main.appendChild(rb);
     main.appendChild(el('span', 'nl-row__meta', g.team_name));
     row.appendChild(main);
 
@@ -581,6 +581,8 @@
     main.appendChild(el('span', 'nl-row__name', recDateLabel(r.game_date) + '　第' + r.game_number + '試合　' +
       (r.opponent ? 'vs ' + r.opponent : '（相手は未入力）')));
     if (r.tournament_name) main.appendChild(el('span', 'nl-badge', r.tournament_name));
+    const rb = NinelogUI.resultBadge(r); // ○ 5−3（2026-11-15）
+    if (rb) main.appendChild(rb);
     main.appendChild(el('span', 'nl-row__meta', teamNameOf(r.team_id)));
     row.appendChild(main);
     const kind = recs.kind;

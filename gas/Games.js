@@ -12,12 +12,18 @@
  *   （作るときは作る人、直すときは直す人）が参加している大会だけ。外す（空にする）のは誰でもよい。
  *   大会を付けて試合区分が空なら、区分は「公式戦」にする（11.7章のD）。
  *
+ * - 得点（2026-11-15 利用者が追加）：自分たちの得点 our_score と相手の得点 opp_score（0〜99）。
+ *   どちらも空でよい（試合の前に作るため）。片方だけは不可。両方入っていれば、勝敗は得点から決める
+ *   （多いほうが勝ち、同じなら引き分け。送られた勝敗は使わない）。空なら、今までどおり勝敗を選ぶ。
+ *   列は games シートの右端。見出しが無ければ、得点を初めて書くときに自動で足す（ensureColumns_）。
+ *
  * options（自動テストのときだけ。画面からは渡せない）：today（今日の日付を決め打ち）
  */
 
 const GAME_CATEGORIES = ['official', 'practice', 'other']; // 公式戦・練習試合・その他（11.7章のD）
 const GAME_RESULTS = ['win', 'lose', 'draw'];               // 勝ち・負け・引き分け
-const GAME_EDIT_FIELDS = ['tournament_id', 'game_date', 'game_number', 'opponent', 'category', 'result'];
+const GAME_SCORE_FIELDS = ['our_score', 'opp_score'];      // 得点の列（2026-11-15 追加）
+const GAME_EDIT_FIELDS = ['tournament_id', 'game_date', 'game_number', 'opponent', 'category', 'result'].concat(GAME_SCORE_FIELDS);
 
 /**
  * 操作：createGame（試合を作る）
@@ -48,6 +54,9 @@ function handleCreateGame_(data, user, options) {
     throw gameNumberError_('この日の第' + v.game_number + '試合は、すでにあります（一覧から選んでください）');
   }
 
+  if (v.our_score === null) { v.our_score = ''; v.opp_score = ''; }
+  if (v.our_score !== '') ensureColumns_(CONFIG.SHEET.GAMES, GAME_SCORE_FIELDS);
+
   const now = new Date();
   const game = {
     game_id: Utilities.getUuid(),
@@ -58,6 +67,8 @@ function handleCreateGame_(data, user, options) {
     opponent: v.opponent,
     category: v.category,
     result: v.result,
+    our_score: v.our_score,
+    opp_score: v.opp_score,
     created_by: user.userId,
     created_at: now,
     updated_at: now,
@@ -121,6 +132,12 @@ function handleUpdateGame_(data, user, options) {
   const v = validateGameInput_(Object.assign({}, data, { team_id: String(current.team_id) }), today);
   if (v.game_number === null) v.game_number = Number(current.game_number);
   if (data.tournament_id === undefined) v.tournament_id = String(current.tournament_id || ''); // 送られなければ今のまま
+  if (v.our_score === null) {
+    // 得点が送られなければ今のまま（得点の欄が無い古い画面から直したとき）。今の得点が両方あれば、勝敗は得点から決める
+    v.our_score = scoreValue_(current.our_score);
+    v.opp_score = scoreValue_(current.opp_score);
+    if (v.our_score === null || v.opp_score === null) { v.our_score = ''; v.opp_score = ''; } else { v.result = resultFromScore_(v.our_score, v.opp_score); }
+  }
   if (!isWithinEditPeriod_(v.game_date, today)) {
     throw editPeriodOverError_();
   }
@@ -149,6 +166,7 @@ function handleUpdateGame_(data, user, options) {
     return { unchanged: true, game: toGameSummary_(current, user, today) };
   }
 
+  if (changes.our_score || changes.opp_score) ensureColumns_(CONFIG.SHEET.GAMES, GAME_SCORE_FIELDS);
   const now = new Date();
   const update = { updated_at: now };
   Object.keys(changes).forEach(function (field) { update[field] = changes[field].newValue; });
@@ -220,9 +238,50 @@ function validateGameInput_(data, today) {
   }
   v.category = checkChoice_(data.category, GAME_CATEGORIES, 'category', '試合区分は「公式戦」「練習試合」「その他」から選んでください', errors);
   v.result = checkChoice_(data.result, GAME_RESULTS, 'result', '勝敗は「勝ち」「負け」「引き分け」から選んでください', errors);
+  checkScores_(data, v, errors);
 
   throwIfErrors_(errors);
   return v;
+}
+
+/**
+ * 得点を確かめる（2026-11-15）。v.our_score・v.opp_score に入れる：
+ * - 両方とも送られていない：null（作るときは空、直すときは今のまま）
+ * - 両方とも空：''（得点なし。勝敗は選んだもの）
+ * - 両方とも0〜99の整数：数（勝敗は得点から決める）
+ * 片方だけ入っているときは、空のほうの欄にエラーを付ける。
+ */
+function checkScores_(data, v, errors) {
+  v.our_score = null;
+  v.opp_score = null;
+  if (data.our_score === undefined && data.opp_score === undefined) return;
+  const isEmpty = function (x) { return x === undefined || x === null || x === ''; };
+  const labels = { our_score: '自分たちの得点', opp_score: '相手の得点' };
+  const values = {};
+  GAME_SCORE_FIELDS.forEach(function (field) {
+    values[field] = isEmpty(data[field]) ? '' : checkCount_(data[field], field, labels[field], CONFIG.SCORE_MAX, errors);
+  });
+  if (values.our_score === null || values.opp_score === null) return; // 数のまちがい（エラーは付けた）
+  if ((values.our_score === '') !== (values.opp_score === '')) {
+    const empty = values.our_score === '' ? 'our_score' : 'opp_score';
+    errors.push({ field: empty, message: '得点は、自分たちと相手の両方を入れてください（どちらも空でもかまいません）' });
+    return;
+  }
+  v.our_score = values.our_score;
+  v.opp_score = values.opp_score;
+  if (v.our_score !== '') v.result = resultFromScore_(v.our_score, v.opp_score);
+}
+
+/** 得点から勝敗を決める（多いほうが勝ち、同じなら引き分け） */
+function resultFromScore_(ours, theirs) {
+  return ours > theirs ? 'win' : ours < theirs ? 'lose' : 'draw';
+}
+
+/** シートの得点のマス → 数（空・数でないものは null） */
+function scoreValue_(value) {
+  if (value === '' || value === null || value === undefined) return null;
+  const n = Number(value);
+  return Number.isInteger(n) && n >= 0 ? n : null;
 }
 
 /** 選択式の項目：空か、決められた値のどれか */
@@ -351,6 +410,8 @@ function toGameSummary_(game, user, today) {
     opponent: String(game.opponent || ''),
     category: String(game.category || ''),
     result: String(game.result || ''),
+    our_score: scoreValue_(game.our_score),
+    opp_score: scoreValue_(game.opp_score),
     created_by_me: game.created_by === user.userId,
     can_edit: canEditGame_(game, user.userId) && isWithinEditPeriod_(gameDate, today),
     editable_until: addDays_(gameDate, CONFIG.RECORD_EDIT_DAYS),

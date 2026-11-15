@@ -17,7 +17,6 @@
   const TEAM_KEY = 'ninelog_input_team'; // 前に選んだチーム（この端末だけに覚える。なくても動く）
 
   const CATEGORY_LABELS = { official: '公式戦', practice: '練習試合', other: 'その他' };
-  const RESULT_LABELS = { win: '勝ち', lose: '負け', draw: '引き分け' };
 
   const state = {
     teams: [],            // 所属しているチーム（大会は入れない）
@@ -298,8 +297,10 @@
       b.setAttribute('aria-pressed', g.game_id === state.selectedGameId ? 'true' : 'false');
       b.appendChild(el('div', 'nl-choice__title', gameTitle(g)));
       const badges = gameBadges(g);
-      if (badges.length) {
+      const rb = NinelogUI.resultBadge(g); // ○ 5−3（2026-11-15）
+      if (badges.length || rb) {
         const row = el('div', 'nl-badges');
+        if (rb) row.appendChild(rb);
         badges.forEach(function (t) { row.appendChild(el('span', 'nl-badge', t)); });
         b.appendChild(row);
       }
@@ -320,7 +321,6 @@
     const list = [];
     if (g.tournament_name) list.push(g.tournament_name);
     if (CATEGORY_LABELS[g.category]) list.push(CATEGORY_LABELS[g.category]);
-    if (RESULT_LABELS[g.result]) list.push(RESULT_LABELS[g.result]);
     if (g.created_by_me) list.push('あなたが作成');
     return list;
   }
@@ -334,6 +334,11 @@
     const team = state.teams.filter(function (t) { return t.teamId === state.teamId; })[0];
     $('selected-title').textContent = dateLabel(g.game_date) + '　' + gameTitle(g);
     $('selected-sub').textContent = (team ? team.teamName : '') + (g.tournament_name ? '　／　' + g.tournament_name : '');
+    const resultBox = $('selected-result');
+    resultBox.innerHTML = '';
+    const rb = NinelogUI.resultBadge(g);
+    if (rb) resultBox.appendChild(rb);
+    resultBox.hidden = !rb;
     $('selected-reflect').textContent = reflectText(g, team);
     $('btn-game-detail').href = 'game.html?game=' + encodeURIComponent(g.game_id); // 試合の詳細（C-15）
     // 大会に参加していない人には、大会のランキングに載らないことを知らせる（11.7章のK）
@@ -391,7 +396,11 @@
 
     $('edit-opponent').value = g.opponent || '';
     $('edit-category').value = g.category || '';
+    resetScoreResult('edit-');
     $('edit-result').value = g.result || '';
+    $('edit-our-score').value = typeof g.our_score === 'number' ? String(g.our_score) : '';
+    $('edit-opp-score').value = typeof g.opp_score === 'number' ? String(g.opp_score) : '';
+    syncScoreResult('edit-');
 
     // 大会：参加している大会と「大会なし」。今付いている大会に本人が参加していなくても、そのままにはできる（11.1章）
     const team = state.teams.filter(function (t) { return t.teamId === state.teamId; })[0];
@@ -427,6 +436,8 @@
       tournament_id: tournamentValue('edit-tournament-field', 'edit-tournament'),
       category: $('edit-category').value,
       result: $('edit-result').value,
+      our_score: scoreText('edit-our-score'),
+      opp_score: scoreText('edit-opp-score'),
     };
     return NinelogUI.withBusy($('btn-save-game'), function () {
       return NinelogApp.call('updateGame', data).then(function (res) {
@@ -767,6 +778,7 @@
     NinelogUI.clearAlerts(form);
     NinelogUI.clearAlerts($('pick')); // 前に作った試合の「作りました」のお知らせを消す
     form.reset();
+    resetScoreResult('');
     $('new-game-date').textContent = '試合日：' + dateLabel(state.date);
 
     // 第何試合かは、その日の次の番号に自動で決まる（GASが決める。選ぶ欄は置かない）
@@ -823,6 +835,48 @@
     return v === TOURNAMENT_NONE ? '' : v;
   }
 
+  /* ---------- 得点（2026-11-15 利用者が追加） ---------- */
+
+  /** 得点の欄の文字（全角の数字は半角にそろえ、前後の空白を取る。チェックはGASが行う） */
+  function scoreText(id) {
+    return $(id).value.normalize('NFKC').trim();
+  }
+
+  /**
+   * 両方の得点が0〜99の数なら、勝敗の欄を得点に合わせて変え、選べなくする（多いほうが勝ち、同じなら引き分け）。
+   * 得点が空・片方だけ・数でないときは、今までどおり勝敗を選べる（GASも同じ決まりで勝敗を決める）。
+   * prefix：''（新しい試合）か 'edit-'（試合の情報を直す）
+   */
+  function syncScoreResult(prefix) {
+    const ours = scoreText(prefix + 'our-score');
+    const theirs = scoreText(prefix + 'opp-score');
+    const sel = $(prefix + 'result');
+    const both = /^[0-9]{1,2}$/.test(ours) && /^[0-9]{1,2}$/.test(theirs);
+    if (both) {
+      const a = Number(ours);
+      const b = Number(theirs);
+      if (!sel.disabled) sel.setAttribute('data-chosen', sel.value); // 得点を消したときに戻すため
+      sel.value = a > b ? 'win' : a < b ? 'lose' : 'draw';
+      sel.disabled = true;
+    } else if (sel.disabled) {
+      sel.disabled = false;
+      sel.value = sel.getAttribute('data-chosen') || '';
+    }
+    $(prefix + 'result-auto').hidden = !both;
+  }
+  /** 勝敗の欄を、選べる状態に戻す（欄を開き直すとき） */
+  function resetScoreResult(prefix) {
+    const sel = $(prefix + 'result');
+    sel.disabled = false;
+    sel.removeAttribute('data-chosen');
+    $(prefix + 'result-auto').hidden = true;
+  }
+  ['', 'edit-'].forEach(function (prefix) {
+    [prefix + 'our-score', prefix + 'opp-score'].forEach(function (id) {
+      $(id).addEventListener('input', function () { syncScoreResult(prefix); });
+    });
+  });
+
   function hideNewGame() {
     $('new-game').hidden = true;
     $('btn-new').hidden = false;
@@ -850,6 +904,8 @@
       tournament_id: tournamentValue('tournament-field', 'tournament_id'),
       category: $('category').value,
       result: $('result').value,
+      our_score: scoreText('our-score'),
+      opp_score: scoreText('opp-score'),
     };
     return NinelogUI.withBusy($('btn-create'), function () {
       return NinelogApp.call('createGame', data).then(function (res) {

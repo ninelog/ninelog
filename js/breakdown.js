@@ -6,6 +6,7 @@
  *
  * 使い方：
  *   const bd = NinelogBreakdown.create(四角の要素, { withRecord: false });  // チーム全体の成績では true（勝敗の表も出す）
+ *   dims：出す分け方（省くと3つ全部）。「自分の成績」では相手別を出さない（2026-11-15 利用者が決定）
  *   bd.update(res.breakdowns);   // 選び直すたびに呼ぶ。行が1つも無ければ、四角ごと隠す
  */
 const NinelogBreakdown = (function () {
@@ -53,16 +54,17 @@ const NinelogBreakdown = (function () {
   };
 
   function create(card, options) {
-    const opts = Object.assign({ withRecord: false }, options || {});
+    const opts = Object.assign({ withRecord: false, dims: null }, options || {});
     const el = NinelogUI.el;
     const views = opts.withRecord ? ['record', 'batting', 'pitching'] : ['batting', 'pitching'];
-    let dim = DIMENSIONS[0][0];
+    const dims = DIMENSIONS.filter(function (d) { return !opts.dims || opts.dims.indexOf(d[0]) !== -1; });
+    let dim = dims[0][0];
     let view = views[0];
     let data = null;
 
     card.innerHTML = '';
-    card.appendChild(el('h2', '', '相手別・大会別の集計'));
-    const dimSeg = seg(DIMENSIONS.map(function (d) { return [d[0], d[1]]; }), dim, '集計の分け方', function (v) { dim = v; render(); });
+    card.appendChild(el('h2', '', dims.some(function (d) { return d[0] === 'by_opponent'; }) ? '相手別・大会別の集計' : '大会別・区分別の集計'));
+    const dimSeg = seg(dims.map(function (d) { return [d[0], d[1]]; }), dim, '集計の分け方', function (v) { dim = v; render(); });
     const viewSeg = seg(views.map(function (v) { return [v, VIEWS[v].label]; }), view, '表の中身', function (v) { view = v; render(); });
     const wrap = el('div', 'nl-table-wrap');
     const table = el('table', 'nl-table nl-table--bd');
@@ -114,7 +116,7 @@ const NinelogBreakdown = (function () {
       /** GASの breakdowns を出す。行が1つも無ければ、四角ごと隠す */
       update: function (breakdowns) {
         data = breakdowns || {};
-        const any = DIMENSIONS.some(function (d) { return (data[d[0]] || []).length > 0; });
+        const any = dims.some(function (d) { return (data[d[0]] || []).length > 0; });
         card.hidden = !any;
         if (any) render();
       },

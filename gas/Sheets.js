@@ -173,6 +173,32 @@ function writeTableCache_(name, table) {
   } catch (e) { /* 覚えられなくても動く */ }
 }
 
+/**
+ * 見出しに無い列を、右端に足す（2026-11-15。games の得点の列のため）。
+ * 書き込む操作の中（順番待ちの中）でだけ呼ぶ。足したら、データの版を新しくする（ほかの要求が古い見出しを使わないように）。
+ */
+function ensureColumns_(name, cols) {
+  const table = loadTable_(name);
+  const missing = cols.filter(function (c) { return table.header.indexOf(c) === -1; });
+  if (missing.length === 0) return;
+  const sheet = getSheet_(name);
+  const start = table.header.length + 1;
+  sheetMemory_.dirty = true;
+  measure_('write', function () {
+    const lastNeeded = start + missing.length - 1;
+    if (sheet.getMaxColumns && lastNeeded > sheet.getMaxColumns()) {
+      sheet.insertColumnsAfter(sheet.getMaxColumns(), lastNeeded - sheet.getMaxColumns());
+    }
+    const range = sheet.getRange(1, start, 1, missing.length);
+    range.setNumberFormats([missing.map(function () { return '@'; })]);
+    range.setValues([missing]);
+  });
+  missing.forEach(function (c) {
+    table.header.push(c);
+    table.records.forEach(function (r) { r[c] = ''; });
+  });
+}
+
 /** 見出しに、設計どおりの列がそろっているか */
 function checkHeader_(name, header) {
   (SHEET_COLUMNS[name] || []).forEach(function (col) {

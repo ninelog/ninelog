@@ -16,7 +16,6 @@
   const $ = function (id) { return document.getElementById(id); };
   const el = NinelogUI.el;
   const MEDALS = ['🥇', '🥈', '🥉'];
-  const RESULT_LABELS = { win: '勝ち', lose: '負け', draw: '引き分け' };
   const CATEGORY_LABELS = { official: '公式戦', practice: '練習試合', other: 'その他' };
   const SORT_LABELS = { avg: '打率', hits: '安打', rbis: '打点' };
   const state = { detail: null, sort: 'avg' };
@@ -115,7 +114,8 @@
     add(g.team_name);
     add(g.tournament_name);
     add(CATEGORY_LABELS[g.category]);
-    add(RESULT_LABELS[g.result], g.result === 'win' ? 'nl-badge--win' : '');
+    const rb = NinelogUI.resultBadge(g); // ○ 5−3（2026-11-15）
+    if (rb) badges.appendChild(rb);
   }
 
   function start() {

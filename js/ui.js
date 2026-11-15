@@ -58,6 +58,7 @@ const NinelogUI = (function () {
    */
   function boot(pageKey, title, onReady, options) {
     renderHeader(pageKey, title);
+    setupSwipe(pageKey);
     if (typeof liff === 'undefined' || typeof NinelogApp === 'undefined') {
       showError({ message: '画面の部品を読み込めませんでした。電波のよい場所で、開き直してください' });
       return;
@@ -197,7 +198,7 @@ const NinelogUI = (function () {
       const msg = el('div', 'nl-field-error', d.message);
       msg.setAttribute('data-nl-field-error', '');
       // －・＋の付いた数の欄（.nl-step。C-4）では、欄の組のうしろ（行の下）に出す
-      (input.closest('.nl-step') || input).insertAdjacentElement('afterend', msg);
+      (input.closest('.nl-step') || input.closest('.nl-score') || input).insertAdjacentElement('afterend', msg);
     });
     return unplaced;
   }
@@ -567,6 +568,82 @@ const NinelogUI = (function () {
 
   /* ---------- 小さな道具 ---------- */
 
+  /* ---------- 横にすべらせて、上のタブを移る（2026-11-15 利用者が追加） ---------- */
+
+  const SWIPE_MIN_X = 80;       // 横にこれだけ（px）動かしたときだけ移る
+  const SWIPE_MAX_SLOPE = 0.4;  // 縦の動き ÷ 横の動き がこれより大きければ移らない（約22度より斜めは移らない）
+  const SWIPE_MAX_MS = 800;     // これより長くかけて動かしたときは移らない（ゆっくり読んでいるときなど）
+  const SWIPE_EDGE = 24;        // 画面の左右の端からこの幅で始めたときは移らない（スマホの「戻る」操作とぶつからないように）
+  /** この上で始めたときは移らない：入力欄・横に並んだ切り替え・カレンダー・グラフ・画面の切り替えの帯など */
+  const SWIPE_BLOCK = 'input, textarea, select, canvas, .nl-chart, .nl-seg, .nl-cats, .nl-cal, .nl-nav, .nl-daynav, .nl-step, .nl-score, .nl-modal, [data-no-swipe]';
+
+  /**
+   * 左にすべらせると右のタブへ、右にすべらせると左のタブへ移る（並びは PAGES の順）。
+   * 4つの画面だけ（試合の詳細など、PAGES に無い画面では何もしない）。
+   * 画面のスクロールは止めない（passive。押しただけ・縦に動かしただけでは何も起きない）。
+   */
+  function setupSwipe(pageKey) {
+    let index = -1;
+    PAGES.forEach(function (p, i) { if (p.key === pageKey) index = i; });
+    if (index === -1 || !('ontouchstart' in window)) return;
+    let start = null;
+    document.addEventListener('touchstart', function (e) {
+      start = null;
+      if (e.touches.length !== 1) return;
+      const t = e.touches[0];
+      if (t.clientX < SWIPE_EDGE || t.clientX > window.innerWidth - SWIPE_EDGE) return;
+      if (blocksSwipe(e.target)) return;
+      start = { x: t.clientX, y: t.clientY, at: Date.now() };
+    }, { passive: true });
+    document.addEventListener('touchmove', function (e) { if (e.touches.length !== 1) start = null; }, { passive: true });
+    document.addEventListener('touchcancel', function () { start = null; }, { passive: true });
+    document.addEventListener('touchend', function (e) {
+      if (!start) return;
+      const s = start;
+      start = null;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - s.x;
+      const dy = t.clientY - s.y;
+      if (Date.now() - s.at > SWIPE_MAX_MS) return;
+      if (Math.abs(dx) < SWIPE_MIN_X || Math.abs(dy) > Math.abs(dx) * SWIPE_MAX_SLOPE) return;
+      if (window.getSelection && String(window.getSelection())) return;   // 文字を選んでいるとき
+      if (document.querySelector('[aria-busy="true"]')) return;            // 保存などの途中
+      const next = PAGES[index + (dx < 0 ? 1 : -1)];
+      if (!next) return;  // 端のタブ（成績を入力の右すべらせ・チーム・設定の左すべらせ）では何もしない
+      location.href = next.href;
+    }, { passive: true });
+  }
+
+  /** その場所（と外側）が、横にすべらせる操作に使われているか */
+  function blocksSwipe(node) {
+    for (let n = node; n && n.nodeType === 1 && n !== document.body; n = n.parentElement) {
+      if (n.matches(SWIPE_BLOCK)) return true;
+      // 横にスクロールできる表など（中身が幅からはみ出しているときだけ）
+      const ox = getComputedStyle(n).overflowX;
+      if ((ox === 'auto' || ox === 'scroll') && n.scrollWidth > n.clientWidth + 1) return true;
+    }
+    return false;
+  }
+
+  /* ---------- 勝敗と得点の札（2026-11-15 利用者が追加） ---------- */
+
+  const RESULT_MARKS = { win: ['○', '勝ち'], lose: ['●', '負け'], draw: ['△', '引き分け'] };
+
+  /**
+   * 試合の勝敗を「○ 5−3」（得点があるとき）・「○ 勝ち」（得点が無いとき）の札にする。
+   * ○＝勝ち、●＝負け、△＝引き分け。勝敗が無ければ null。
+   * g：{ result, our_score, opp_score }（GASの試合の情報・記録の情報のどちらでもよい）
+   */
+  function resultBadge(g) {
+    const m = g && RESULT_MARKS[g.result];
+    if (!m) return null;
+    const hasScore = typeof g.our_score === 'number' && typeof g.opp_score === 'number';
+    const badge = el('span', 'nl-badge nl-result nl-result--' + g.result,
+      m[0] + ' ' + (hasScore ? g.our_score + '−' + g.opp_score : m[1]));
+    badge.setAttribute('aria-label', m[1] + (hasScore ? '　' + g.our_score + '対' + g.opp_score : ''));
+    return badge;
+  }
+
   function topBox() { return document.getElementById('nl-alert'); }
 
   /** 要素を作る。文字は textContent で入れる（画面に悪いプログラムが入り込まないように） */
@@ -591,6 +668,7 @@ const NinelogUI = (function () {
     withBusy: withBusy,
     clearSnapshots: clearSnapshots,
     rememberReturn: rememberReturn,
+    resultBadge: resultBadge,
     el: el,
   };
 })();

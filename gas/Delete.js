@@ -192,6 +192,8 @@ function copyGameToSolo_(game, solo, userId, now) {
     opponent: String(game.opponent || ''),
     category: String(game.category || ''),
     result: String(game.result || ''),
+    our_score: game.our_score === undefined ? '' : game.our_score, // 得点も写す（列が無ければ書かれない）
+    opp_score: game.opp_score === undefined ? '' : game.opp_score,
     created_by: userId,
     created_at: now,
     updated_at: now,

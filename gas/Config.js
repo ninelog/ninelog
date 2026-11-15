@@ -42,6 +42,7 @@ const CONFIG = {
   // 試合（CLAUDE.md 11.1章）
   GAME_NUMBER_MAX: 9,   // 第何試合の上限（1〜9）
   OPPONENT_MAX: 30,     // 対戦相手の最大文字数
+  SCORE_MAX: 99,        // 試合の得点の上限（0〜99。2026-11-15 追加）
 
   // チームと参加（CLAUDE.md 第4.8章）
   RESERVED_TEAM_NUMBER_MAX: 1998, // 1〜この番号は、管理者が人の手でテストするための予約番号。管理者だけが作れる

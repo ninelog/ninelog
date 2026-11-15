@@ -312,6 +312,9 @@ function toRecordSummary_(t, record, game, user, today) {
   summary.game_date = g.game_date;
   summary.game_number = g.game_number;
   summary.opponent = g.opponent;
+  summary.result = g.result;           // 勝敗と得点（2026-11-15。一覧に ○ 5−3 の形で出す）
+  summary.our_score = g.our_score;
+  summary.opp_score = g.opp_score;
   summary.tournament_id = g.tournament_id;
   summary.tournament_name = g.tournament_name;
   summary.in_my_tournament = g.in_my_tournament;

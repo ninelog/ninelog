@@ -109,6 +109,8 @@ function handleGetGameDetail_(data, user, options) {
       tournament_name: tournament ? String(tournament.team_name) : '',
       category: String(game.category || ''),
       result: String(game.result || ''),
+      our_score: scoreValue_(game.our_score),
+      opp_score: scoreValue_(game.opp_score),
     },
     batting: batting,
     pitching: pitching,
