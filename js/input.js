@@ -901,7 +901,7 @@
     NinelogUI.rememberReturn('input', {
       team: state.teamId, date: state.date, game: state.selectedGameId,
       tab: $('pitching-form').hidden ? 'batting' : 'pitching',
-    });
+    }, this);
   });
   $('btn-edit-cancel').addEventListener('click', closeEdit);
   $('edit-game').addEventListener('submit', saveEdit);

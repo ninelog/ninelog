@@ -142,9 +142,43 @@
   function show(res) {
     state.detail = res;
     renderGame();
+    renderMyInput();
     renderBatting();
     renderPitching();
     renderNav();
+  }
+
+  /**
+   * 自分の成績の入力（2026-11-15）。打撃か投手のどちらかを入れていれば「入れている」。
+   * - まだ入れていない・30日以内：黄色の枠で「あなたの成績はまだ入っていません」と「この試合の成績を入力する」
+   * - 入れている・30日以内：小さめの「この試合の成績を直す」
+   * - 30日を過ぎた試合：出さない
+   * 押すと「成績を入力」が、そのチーム・その日・その試合を選んだ状態で開く（投手だけ入れているときは投手の欄）。
+   */
+  function renderMyInput() {
+    const d = state.detail;
+    const box = $('my-input');
+    box.innerHTML = '';
+    const me = d.me || {};
+    if (!me.can_input) return;
+    const params = new URLSearchParams({ team: d.game.team_id, date: d.game.game_date, game: d.game.game_id });
+    if (!me.has_batting && me.has_pitching) params.set('tab', 'pitching');
+    const href = 'input.html?' + params.toString();
+    if (me.has_record) {
+      const row = el('div', 'nl-row__actions nl-myinput');
+      const a = el('a', 'nl-chip', 'この試合の成績を直す');
+      a.href = href;
+      row.appendChild(a);
+      box.appendChild(row);
+      return;
+    }
+    const warn = el('div', 'nl-alert nl-alert--warn nl-myinput');
+    warn.setAttribute('role', 'note');
+    warn.appendChild(el('p', 'nl-myinput__text', 'あなたの成績はまだ入っていません'));
+    const a = el('a', 'nl-btn nl-btn--block', 'この試合の成績を入力する');
+    a.href = href;
+    warn.appendChild(a);
+    box.appendChild(warn);
   }
 
   /* ---------- 前の試合・次の試合（2026-11-15） ----------

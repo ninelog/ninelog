@@ -449,6 +449,7 @@
 
   function dayGame(g) {
     const row = el('div', 'nl-row');
+    row.setAttribute('data-return-anchor', 'cal:' + g.game_id); // もどったときに、この行の高さに戻す（2026-11-15）
     const main = el('div', 'nl-row__main');
     main.appendChild(el('span', 'nl-row__name', '第' + g.game_number + '試合　' + (g.opponent ? 'vs ' + g.opponent : '（相手は未入力）')));
     if (g.tournament_name) main.appendChild(el('span', 'nl-badge', g.tournament_name));
@@ -502,7 +503,7 @@
     const a = el('a', 'nl-chip', '試合の詳細');
     a.href = 'game.html?game=' + encodeURIComponent(gameId);
     // 戻ったときに、今の状態とスクロールの位置に戻せるように覚えておく（2026-11-15）
-    a.addEventListener('click', function () { NinelogUI.rememberReturn('mystats', currentState()); });
+    a.addEventListener('click', function () { NinelogUI.rememberReturn('mystats', currentState(), a); });
     return a;
   }
 
@@ -575,6 +576,7 @@
 
   function recordRow(r) {
     const row = el('div', 'nl-row');
+    row.setAttribute('data-return-anchor', 'rec:' + r.record_id); // もどったときに、この行の高さに戻す（2026-11-15）
     const main = el('div', 'nl-row__main');
     main.appendChild(el('span', 'nl-row__name', recDateLabel(r.game_date) + '　第' + r.game_number + '試合　' +
       (r.opponent ? 'vs ' + r.opponent : '（相手は未入力）')));

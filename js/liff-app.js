@@ -69,7 +69,7 @@ const NinelogApp = (function () {
     if (FORGET_SNAPSHOT_AFTER.hasOwnProperty(action)) {
       // チーム・大会を退会した・消したときは、このスマホに覚えた「前回の画面」を捨てる（B-24 案A）
       result.then(function () {
-        if (window.NinelogUI && NinelogUI.clearSnapshots) NinelogUI.clearSnapshots();
+        if (typeof NinelogUI !== 'undefined' && NinelogUI.clearSnapshots) NinelogUI.clearSnapshots(); // const で作った部品は window には載らないので typeof で確かめる
       }, function () { /* 失敗したときは、呼んだ側がエラーを出す */ });
     }
     return result;

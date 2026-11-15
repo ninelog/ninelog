@@ -19,7 +19,7 @@
  */
 const LEFT_MEMBER_LABEL = '退会したメンバー';
 
-function handleGetGameDetail_(data, user) {
+function handleGetGameDetail_(data, user, options) {
   const gameId = data && typeof data.game_id === 'string' ? data.game_id : '';
   const game = findActiveGame_(gameId);
   // 試合が無い・消した・今のメンバーではない：どれも同じ返事にする（ほかのチームの試合を探られないように）
@@ -84,7 +84,18 @@ function handleGetGameDetail_(data, user) {
     return { game_id: x.game_id, game_date: dateText_(x.game_date), game_number: Number(x.game_number), opponent: String(x.opponent || '') };
   };
 
+  // 本人の入力の状態（2026-11-15）：打撃か投手のどちらかを入れていれば「入れている」。
+  // 入力・直すのボタンは、試合日から30日以内のときだけ出す（入力の決まりと同じ）
+  const gameDate = dateText_(game.game_date);
+  const me = {
+    has_batting: batting.some(function (r) { return r.is_me; }),
+    has_pitching: pitching.some(function (r) { return r.is_me; }),
+    can_input: isWithinEditPeriod_(gameDate, todayText_(options)),
+  };
+  me.has_record = me.has_batting || me.has_pitching;
+
   return {
+    me: me,
     prev: neighbor(siblings[index - 1]),
     next: neighbor(siblings[index + 1]),
     game: {

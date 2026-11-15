@@ -68,8 +68,14 @@ const NinelogUI = (function () {
     if (useSnapshot) dropOldSnapshots();
     // 「試合の詳細」から「もどる」で戻ってきたときは、開く前の状態と位置に戻す（2026-11-15）。
     // そのときは、前回の画面（案A）は出さない（新しい中身を開く前の位置に出すため。ぶつからないように）
-    const returned = takeReturn(pageKey);
+    const returned = takeReturn(pageKey, title || pageKey);
     if (returned && 'scrollRestoration' in history) history.scrollRestoration = 'manual';
+    // ページがそのまま残っていて、戻る操作で見せ直されたとき（ページの読み直しが無いとき）も、位置を戻す
+    window.addEventListener('pageshow', function (e) {
+      if (!e.persisted) return;
+      const saved = readReturn(pageKey);
+      if (saved) restoreScroll(saved, title || pageKey, 'ページがそのまま残っていた');
+    });
     NinelogApp.start()
       .then(function (ready) {
         if (!ready || !onReady) return null;
@@ -80,7 +86,7 @@ const NinelogUI = (function () {
           }
           return Promise.resolve(onReady(returned ? returned.state : null)).then(function () {
             if (removeSnapshot) removeSnapshot();
-            if (returned) restoreScroll(returned.scrollY);
+            if (returned) restoreScroll(returned, title || pageKey, returnDetail(returned.state));
             // 画面を開いてから、中身が出るまでの時間を残す（「接続の確認」の画面で見られる）
             if (NinelogApp.recordTiming) NinelogApp.recordTiming('画面：' + (title || pageKey), performance.now(), true);
             if (useSnapshot) snapUserKey().then(function (key) { if (key) keepSnapshot(pageKey, key); });
@@ -454,44 +460,109 @@ const NinelogUI = (function () {
    */
   const RETURN_PREFIX = 'ninelog_return:';
   const RETURN_KEEP_MS = 60 * 60 * 1000;
+  const RETURN_WAIT_MS = 5000; // 中身が出そろうのを待つ最長の時間
 
-  function rememberReturn(pageKey, state) {
+  /** 今のスクロールの位置（ブラウザによって取り方が違うので、いちばん大きいものを使う） */
+  function currentScrollY() {
+    return Math.max(window.scrollY || 0, window.pageYOffset || 0,
+      (document.scrollingElement && document.scrollingElement.scrollTop) || 0);
+  }
+
+  /**
+   * anchor：押したボタンがある行（data-return-anchor の付いた要素）。戻ったときは、ピクセルの位置ではなく、
+   * その行が画面の同じ高さに来るように戻す（グラフや一覧の高さが、開き直したときに少し変わっても合うように）。
+   */
+  function rememberReturn(pageKey, state, anchorEl) {
+    const anchor = anchorEl && anchorEl.closest ? anchorEl.closest('[data-return-anchor]') : null;
     try {
-      sessionStorage.setItem(RETURN_PREFIX + pageKey, JSON.stringify({ at: Date.now(), scrollY: window.scrollY || 0, state: state || {} }));
+      sessionStorage.setItem(RETURN_PREFIX + pageKey, JSON.stringify({
+        at: Date.now(),
+        scrollY: currentScrollY(),
+        anchor: anchor ? { key: anchor.getAttribute('data-return-anchor'), top: Math.round(anchor.getBoundingClientRect().top) } : null,
+        state: state || {},
+      }));
     } catch (e) { /* 覚えられなくても動く（戻ったときは一番上から） */ }
   }
 
-  /** 戻る操作で開いたか（ページの開き方の記録で見分ける） */
-  function isBackNavigation() {
+  /** ページの開き方（navigate・reload・back_forward） */
+  function navigationType() {
     try {
       const nav = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
-      return Boolean(nav) && nav.type === 'back_forward';
-    } catch (e) {
-      return false;
-    }
+      if (nav && nav.type) return nav.type;
+      if (performance.navigation) return ['navigate', 'reload', 'back_forward'][performance.navigation.type] || 'navigate';
+    } catch (e) { /* そのまま */ }
+    return 'unknown';
   }
 
-  function takeReturn(pageKey) {
+  function readReturn(pageKey) {
     let saved = null;
     try {
       saved = JSON.parse(sessionStorage.getItem(RETURN_PREFIX + pageKey) || 'null');
       sessionStorage.removeItem(RETURN_PREFIX + pageKey);
     } catch (e) { saved = null; }
-    if (!saved || !(Date.now() - saved.at < RETURN_KEEP_MS) || !isBackNavigation()) return null;
+    return saved && Date.now() - saved.at < RETURN_KEEP_MS ? saved : null;
+  }
+
+  function takeReturn(pageKey, title) {
+    const saved = readReturn(pageKey);
+    if (!saved) return null;
+    const type = navigationType();
+    if (type !== 'back_forward') {
+      // 覚えた状態はあったが、戻る操作ではなかった（上の帯やリッチメニューから開いた）。確かめられるように記録に残す
+      logReturn(title || pageKey, '戻さない：開き方 ' + type);
+      return null;
+    }
     return saved;
   }
 
-  /** スクロールの位置を戻す（グラフなどがあとから広がっても合うように、少し待ってからもう一度） */
-  function restoreScroll(y) {
-    const target = Number(y) || 0;
+  /** 戻したかどうかを「通信にかかった時間」の記録に残す（「接続の確認」の画面で見られる。中身は位置の数字だけ） */
+  function logReturn(name, text) {
+    if (typeof NinelogApp !== 'undefined' && NinelogApp.recordTiming) NinelogApp.recordTiming('もどる：' + name + '（' + text + '）', 0, true);
+  }
+
+  /**
+   * スクロールの位置を戻す。
+   * 中身（グラフ・一覧・カレンダー）は、スマホでは少しずつ遅れて広がるので、一度に戻さず、
+   * 0.1秒ごとに「戻したい位置」と「ページの高さ」を見直し、位置が0.5秒続けて合ったら終わる（最長5秒）。
+   * 途中で利用者が画面にさわったら、そこでやめる。
+   */
+  function restoreScroll(saved, name, detail) {
+    const started = Date.now();
     let touched = false;
+    let stable = 0;
     const mark = function () { touched = true; };
     window.addEventListener('touchstart', mark, { once: true, passive: true });
     window.addEventListener('wheel', mark, { once: true, passive: true });
-    window.scrollTo(0, target);
-    [150, 500].forEach(function (ms) {
-      setTimeout(function () { if (!touched) window.scrollTo(0, target); }, ms);
+    const targetY = function () {
+      if (saved.anchor && saved.anchor.key) {
+        const el = document.querySelector('[data-return-anchor="' + String(saved.anchor.key).replace(/"/g, '') + '"]');
+        if (el) return Math.max(0, Math.round(currentScrollY() + el.getBoundingClientRect().top - saved.anchor.top));
+      }
+      return Number(saved.scrollY) || 0;
+    };
+    const step = function () {
+      if (touched) { logReturn(name, detail + '・位置：途中でさわったのでやめた'); return; }
+      const target = targetY();
+      window.scrollTo(0, target);
+      stable = Math.abs(currentScrollY() - target) < 3 ? stable + 1 : 0;
+      if (stable >= 5 || Date.now() - started > RETURN_WAIT_MS) {
+        logReturn(name, detail + '・位置 ' + target + '→' + Math.round(currentScrollY()));
+        return;
+      }
+      setTimeout(step, 100);
+    };
+    step();
+  }
+
+  /** 戻したときに記録に残す、状態の短い説明 */
+  function returnDetail(state) {
+    const parts = [];
+    // 記録に残すのは、年度・件数・月などの短いものだけ（チームや試合のIDは残さない）
+    ['season', 'recKind', 'recLimit', 'calMonth', 'calSelected', 'date', 'tab'].forEach(function (k) {
+      const v = state && state[k];
+      if (v !== '' && v !== null && v !== undefined) parts.push(k + '=' + String(v).slice(0, 12));
     });
+    return '状態 ' + (parts.join(' ') || 'なし');
   }
 
   /* ---------- 小さな道具 ---------- */

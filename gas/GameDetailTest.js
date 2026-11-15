@@ -102,6 +102,15 @@ function testGameDetailScenario_(results) {
   results.push({ title: '個人用の記録の試合：本人は見られる（チーム名は「個人用の記録」）', expected: '個人用の記録/solo/1', actual: mine.game.team_name + '/' + mine.game.org_type + '/' + mine.batting.length });
   results.push({ title: '個人用の記録の試合：ほかの人は見られない', expected: 'FORBIDDEN', actual: codeOf(act('getGameDetail', { game_id: sg.game_id }, b)) });
 
+  // ---------- 本人の入力の状態（2026-11-15） ----------
+  const meOf = function (gameId, user, today) {
+    const r = callAsTest_(handleGetGameDetail_, { game_id: gameId }, user, { today: today || T }, false);
+    return r.me ? [r.me.has_record, r.me.has_batting, r.me.has_pitching, r.me.can_input].join('/') : codeOf(r);
+  };
+  results.push({ title: '本人の状態：打撃と投手を入れている（30日以内）', expected: 'true/true/true/true', actual: meOf(g.game_id, a) });
+  results.push({ title: '本人の状態：自分が入れていない試合も見られて、「入れていない」と返す', expected: 'false/false/false/true', actual: meOf(other.game_id, a) });
+  results.push({ title: '本人の状態：試合日から30日を過ぎたら、入力・直すはできない', expected: 'true/true/true/false', actual: meOf(g.game_id, a, '2026-12-15') });
+
   // ---------- 前の試合・次の試合（2026-11-15） ----------
   // チームの試合：g（11/1 第1）・other（11/2 第1）・g3（11/2 第2。だれも成績なし）。11/3 の試合は消した
   const g3 = createTestGame_(a, team.team_id, '2026-11-02', T, { opponent: '南クラブ' });
