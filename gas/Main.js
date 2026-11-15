@@ -38,6 +38,7 @@ function getActions_() {
     startSolo: { handler: handleStartSolo_, write: true },
     joinTeam: { handler: handleJoinTeam_, write: true },
     changePassphrase: { handler: handleChangePassphrase_, write: true },
+    renameTeam: { handler: handleRenameTeam_, write: true },
     leaveTeam: { handler: handleLeaveTeam_, write: true },
     addBattingRecord: { handler: handleAddBattingRecord_, write: true },
     listMyBattingRecords: { handler: handleListMyBattingRecords_, write: false },

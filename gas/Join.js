@@ -101,6 +101,39 @@ function handleChangePassphrase_(data, user) {
 }
 
 /**
+ * 操作：renameTeam（チーム名・大会名を変える。代表者だけ。2026-11-16 利用者が追加）
+ * data: { team_id: 'チームまたは大会のID', team_name: '新しい名前' }
+ * - 名前の決まりは作るときと同じ（目に見えない文字を取り除き、前後の空白を取って1〜30文字。ほかと同じ名前でもよい）。
+ * - IDは変えない（team_number を送っても使わない）。個人用の記録の名前は変えられない（11.8章の2）。
+ * - 変えたら record_changes に1行残す（record_type は team・tournament、field は team_name、前の名前と新しい名前）。
+ * - 今と同じ名前なら、何も書かない（unchanged: true）。
+ * - 返事：{ unchanged, team }（team は listMyTeams の1行と同じ形）
+ */
+function handleRenameTeam_(data, user) {
+  const teamId = typeof data.team_id === 'string' ? data.team_id : '';
+  const membership = teamId ? findMembership_(user.userId, teamId) : null;
+  const team = membership && membership.role === 'owner'
+    ? findRecord_(CONFIG.SHEET.TEAMS, function (t) { return t.team_id === teamId; }) : null;
+  // 代表者でない・存在しない・個人用の記録は、どれも同じ返事にする（ほかのチームの有無を探られないように）
+  if (!team || orgTypeOf_(team) === ORG_TYPE.SOLO) {
+    throw new AppError(APP_ERROR.FORBIDDEN, '名前を変えられるのは、そのチーム・大会の代表者だけです');
+  }
+  const type = orgTypeOf_(team);
+  const errors = [];
+  const name = checkTeamName_(data.team_name, errors, type);
+  throwIfErrors_(errors);
+
+  const before = String(team.team_name);
+  if (name === before) {
+    return { unchanged: true, team: toTeamSummary_(team, 'owner') };
+  }
+  const now = new Date();
+  updateRecord_(CONFIG.SHEET.TEAMS, team._row, { team_name: name, updated_at: now });
+  appendRecordChanges_(type, team.team_id, user.userId, 'update', { team_name: { oldValue: before, newValue: name } }, now);
+  return { unchanged: false, team: toTeamSummary_(Object.assign({}, team, { team_name: name }), 'owner') };
+}
+
+/**
  * 操作：leaveTeam（チーム・大会から退会する。B-20。2026-11-14 利用者が追加）
  * data: { team_id: 'チームまたは大会のID' }
  * - 退会しても、成績（打撃・投手）と試合は消さない。チーム全体の成績には残り、ランキングには載らなくなる。

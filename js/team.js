@@ -3,7 +3,7 @@
  *
  * C-9e：代表者はチーム・大会を消せる。個人用の記録の成績を、あとからチームの試合に移せる（11.9章。B-21）
  *
- * 使うGASの操作：whoami・listMyTeams・joinTeam・createTeam・changePassphrase・updateMyName・startSolo・leaveTeam・
+ * 使うGASの操作：whoami・listMyTeams・joinTeam・createTeam・changePassphrase・renameTeam・updateMyName・startSolo・leaveTeam・
  *               getDeletePreview・deleteTeam・listSoloMoveTargets・moveSoloRecords
  */
 (function () {
@@ -81,9 +81,10 @@
         main.appendChild(el('span', 'nl-row__meta', (t.orgType === 'tournament' ? '参加者 ' : 'メンバー ') + t.memberCount + '人'));
       }
       row.appendChild(main);
-      // 代表者は合言葉を変えられて、チーム・大会を消せる（C-9e）。メンバーは退会できる（代表者は退会できない。B-20）
+      // 代表者は名前と合言葉を変えられて、チーム・大会を消せる（C-9e）。メンバーは退会できる（代表者は退会できない。B-20）
       if (t.role === 'owner') {
         const wrap = passphraseForm(t, row);
+        addRenameForm(t, row, wrap);
         addDeleteForm(t, row, wrap);
         row.appendChild(wrap);
       } else {
@@ -185,6 +186,76 @@
     return wrap;
   }
 
+  /**
+   * 代表者だけ：チーム名・大会名を変える（2026-11-16 利用者が追加）。「合言葉を変える」と同じ作り。
+   * 名前の決まり・欄の下の文・エラーの文は、作るときと同じ（GASが確かめる）。IDは変えられない。
+   */
+  function addRenameForm(t, row, wrap) {
+    const isTour = t.orgType === 'tournament';
+    const label = isTour ? '大会名' : 'チーム名';
+    const open = el('button', 'nl-chip', '名前を変える');
+    open.type = 'button';
+
+    const form = el('form', '');
+    form.noValidate = true;
+    form.hidden = true;
+    form.style.width = '100%';
+    const field = el('div', 'nl-field');
+    const id = 'rename-' + t.teamId;
+    const lab = el('label', '', '新しい' + label);
+    lab.setAttribute('for', id);
+    const input = el('input', '');
+    input.type = 'text';
+    input.id = id;
+    input.name = 'team_name';
+    input.autocomplete = 'off';
+    input.maxLength = 30;
+    field.appendChild(lab);
+    field.appendChild(input);
+    // 作るときと同じ文（js/team.js の name-hint）
+    field.appendChild(el('p', 'nl-note', isTour ? '大会名：1〜30文字。ほかの大会と同じ名前でも作れます。' : 'チーム名：1〜30文字。ほかのチームと同じ名前でも作れます。'));
+    form.appendChild(field);
+    const actions = el('div', 'nl-actions');
+    const save = el('button', 'nl-btn', '変える');
+    save.type = 'submit';
+    const cancel = el('button', 'nl-btn nl-btn--sub', 'やめる');
+    cancel.type = 'button';
+    actions.appendChild(save);
+    actions.appendChild(cancel);
+    form.appendChild(actions);
+    form.appendChild(el('p', 'nl-note', 'IDは変わりません。変えた名前は、ランキングや試合の詳細など、どの画面にも出ます（メンバーのスマホでは、前回の画面が一瞬だけ前の名前で出ることがあります）。'));
+
+    const chips = function (show) { wrap.querySelectorAll(':scope > .nl-chip').forEach(function (b) { b.hidden = !show; }); };
+    open.addEventListener('click', function () {
+      NinelogUI.clearAlerts(row);
+      wrap.querySelectorAll(':scope > form').forEach(function (f) { f.hidden = true; });
+      chips(false);
+      input.value = t.teamName;
+      form.hidden = false;
+      input.focus();
+    });
+    cancel.addEventListener('click', function () { form.hidden = true; chips(true); NinelogUI.clearAlerts(row); });
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      NinelogUI.clearAlerts(row);
+      NinelogUI.withBusy(save, function () {
+        return NinelogApp.call('renameTeam', { team_id: t.teamId, team_name: input.value }).then(function (res) {
+          if (res.unchanged) {
+            NinelogUI.showOk('今と同じ名前なので、変えていません。', row);
+            return;
+          }
+          // 一覧を読み直すと、この行も作り直されるので、お知らせは一覧の四角の一番下に出す
+          return reloadTeams().then(function () {
+            $('teams-fold').open = true;
+            NinelogUI.showOk('「' + t.teamName + '」の名前を「' + res.team.teamName + '」に変えました。', $('teams-card'));
+          });
+        }).catch(function (err) { NinelogUI.showError(err, row); });
+      });
+    });
+    wrap.insertBefore(open, wrap.firstChild);
+    wrap.appendChild(form);
+  }
+
   /* ---------- チーム・大会を消す（C-9e。11.9章） ---------- */
 
   /**
@@ -198,8 +269,8 @@
     open.type = 'button';
     const panel = el('div', 'nl-danger-box');
     panel.hidden = true;
-    // 合言葉を変える欄より前に、ボタンを並べる
-    wrap.insertBefore(open, wrap.children[1] || null);
+    // ボタンの並びの最後（名前を変える・合言葉を変えるの後ろ、入力欄より前）に置く
+    wrap.insertBefore(open, wrap.querySelector(':scope > form'));
     wrap.appendChild(panel);
 
     const close = function () {

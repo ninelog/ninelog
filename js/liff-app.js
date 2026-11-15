@@ -76,7 +76,8 @@ const NinelogApp = (function () {
   }
 
   /** 成功したら、覚えた「前回の画面」を捨てる操作 */
-  const FORGET_SNAPSHOT_AFTER = { leaveTeam: 1, deleteTeam: 1 };
+  // 名前を変えたとき（renameTeam。2026-11-16）も捨てる（前回の画面に前の名前が出ないように）
+  const FORGET_SNAPSHOT_AFTER = { leaveTeam: 1, deleteTeam: 1, renameTeam: 1 };
 
   /** 1つの操作を送る。混み合っている（BUSY）ときは、1.5秒待って1回だけやり直す（3.5章） */
   function callOne(action, data, label) {

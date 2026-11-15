@@ -43,6 +43,7 @@ function testAllNames_() {
     'testSheetCache',      // B-24 GASの中にシートの中身を覚える
     'testPurge',           // B-25 公開前にテストのデータを消す仕組み
     'testGameDetail',      // B-26 試合の詳細
+    'testRenameTeam',      // チーム・大会の名前を変える（2026-11-16）
   ];
 }
 

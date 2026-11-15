@@ -29,7 +29,7 @@ function testPermissions() {
  */
 function permissionCheckedActions_() {
   return [
-    'whoami', 'updateMyName', 'createTeam', 'listMyTeams', 'joinTeam', 'changePassphrase', 'startSolo', 'leaveTeam',
+    'whoami', 'updateMyName', 'createTeam', 'listMyTeams', 'joinTeam', 'changePassphrase', 'renameTeam', 'startSolo', 'leaveTeam',
     'addBattingRecord', 'listMyBattingRecords', 'updateBattingRecord', 'deleteBattingRecord',
     'addPitchingRecord', 'listMyPitchingRecords', 'updatePitchingRecord', 'deletePitchingRecord',
     'getMyStats', 'getTeamRanking', 'getTournamentRanking', 'getTeamStats', 'getCalendar', 'getGameDetail',
@@ -92,6 +92,13 @@ function testPermissionsScenario_(results) {
   expectRefused('合言葉の変更：参加していない大会', 'FORBIDDEN', act('changePassphrase', { team_id: tourY.team_id, passphrase: 'あたらしい99' }, m));
   expectRefused('合言葉の変更：存在しないID', 'FORBIDDEN', act('changePassphrase', { team_id: 'no-such-team', passphrase: 'あたらしい99' }, m));
   expectRefused('合言葉の変更：管理者でも、代表者でなければ変えられない', 'FORBIDDEN', act('changePassphrase', { team_id: teamY.team_id, passphrase: 'あたらしい99' }, m, true));
+
+  // ---------- チーム・大会の名前（2026-11-16） ----------
+  expectRefused('名前の変更：メンバーは、自分のチームでも変えられない', 'FORBIDDEN', act('renameTeam', { team_id: teamX.team_id, team_name: 'のっとり' }, m));
+  expectRefused('名前の変更：所属していないチーム', 'FORBIDDEN', act('renameTeam', { team_id: teamY.team_id, team_name: 'のっとり' }, m));
+  expectRefused('名前の変更：参加していない大会', 'FORBIDDEN', act('renameTeam', { team_id: tourY.team_id, team_name: 'のっとり' }, m));
+  expectRefused('名前の変更：存在しないID', 'FORBIDDEN', act('renameTeam', { team_id: 'no-such-team', team_name: 'のっとり' }, m));
+  expectRefused('名前の変更：管理者でも、代表者でなければ変えられない', 'FORBIDDEN', act('renameTeam', { team_id: teamY.team_id, team_name: 'のっとり' }, m, true));
 
   // ---------- 成績の入力（他のチームの試合） ----------
   expectRefused('打撃の入力：所属していないチームの試合', 'FORBIDDEN', act('addBattingRecord', batData(gy), m));
