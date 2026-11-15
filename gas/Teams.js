@@ -118,10 +118,18 @@ function handleListMyTeams_(data, user) {
   const teamsById = {};
   readRecords_(CONFIG.SHEET.TEAMS).forEach(function (t) { teamsById[t.team_id] = t; });
 
+  // 代表者のチーム・大会には、今の人数（memberCount）を付ける（2026-11-15。退会した人は memberships から消えるので入らない。
+  // 代表者自身は入る）。メンバーには人数を返さない。ほかの人の名前やIDは返さない。個人用の記録には付けない
+  const all = readRecords_(CONFIG.SHEET.MEMBERSHIPS);
   const teams = [];
   memberships.forEach(function (m) {
     const team = teamsById[m.team_id];
-    if (team) teams.push(toTeamSummary_(team, m.role));
+    if (!team) return;
+    const summary = toTeamSummary_(team, m.role);
+    if (m.role === 'owner' && orgTypeOf_(team) !== ORG_TYPE.SOLO) {
+      summary.memberCount = all.filter(function (x) { return x.team_id === m.team_id; }).length;
+    }
+    teams.push(summary);
   });
   return { teams: teams };
 }

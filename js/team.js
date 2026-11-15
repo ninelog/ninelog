@@ -76,6 +76,10 @@
       if (t.orgType === 'tournament') main.appendChild(el('span', 'nl-badge', '大会'));
       main.appendChild(el('span', 'nl-badge', t.role === 'owner' ? '代表者' : 'メンバー'));
       main.appendChild(el('span', 'nl-row__meta', 'ID ' + t.teamNumber));
+      // 代表者にだけ、今の人数を出す（GASは代表者にだけ memberCount を返す。2026-11-15）
+      if (t.role === 'owner' && typeof t.memberCount === 'number') {
+        main.appendChild(el('span', 'nl-row__meta', (t.orgType === 'tournament' ? '参加者 ' : 'メンバー ') + t.memberCount + '人'));
+      }
       row.appendChild(main);
       // 代表者は合言葉を変えられて、チーム・大会を消せる（C-9e）。メンバーは退会できる（代表者は退会できない。B-20）
       if (t.role === 'owner') {

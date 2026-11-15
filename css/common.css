@@ -520,3 +520,9 @@ body.nl-modal-open { overflow: hidden; }
   display: inline-block; margin-left: 4px; padding: 0 6px; border-radius: 4px;
   background: var(--error-soft); color: var(--error); font-size: 11px; font-weight: 700; line-height: 1.6; vertical-align: 1px;
 }
+
+/* 入力した成績の一覧の、年の区切り（2026-11-15） */
+.nl-year-sep {
+  display: flex; align-items: center; gap: 8px; margin: 10px 0 2px; font-size: 12px; font-weight: 700; color: var(--sub);
+}
+.nl-year-sep::after { content: ""; flex: 1; border-top: 1px solid var(--line); }

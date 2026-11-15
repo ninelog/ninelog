@@ -72,7 +72,7 @@
 
   function reload() {
     NinelogUI.clearAlerts($('filters'));
-    recs.limit = REC_PAGE; // 選び直したら、入力した成績の一覧は最初の10件に戻す（C-10）
+    recs.limit = REC_PAGE; // 選び直したら、入力した成績の一覧は最初の5件に戻す（C-10）
     const data = Object.assign({ season: $('season').value }, scopeData());
     load(data).catch(function (err) {
       // 読めなかったときは、選択欄を、いま出している成績のものに戻す（選択欄と中身が食い違わないように）
@@ -457,7 +457,7 @@
 
   /* ---------- 入力した成績の一覧（C-10。3.4章・4.5b章） ---------- */
 
-  const REC_PAGE = 10; // 最初に出す件数（「もっと見る」で10件ずつ足す）
+  const REC_PAGE = 5; // 最初に出す件数（「もっと見る」で5件ずつ足す。2026-11-15 に10件から変更）
   const recs = { lists: null, limit: REC_PAGE, confirming: '', kind: 'batting' };
   /** 種類ごとの言葉と、消す操作の名前 */
   const REC_KINDS = {
@@ -473,6 +473,13 @@
         && (!shown.teamId || r.team_id === shown.teamId)
         && (!shown.tournamentId || r.tournament_id === shown.tournamentId);
     });
+  }
+
+  /** 入力した成績の一覧の日付：今年は「11月14日」、去年より前は「2025年10月12日」（2026-11-15） */
+  function recDateLabel(text) {
+    const p = String(text).split('-').map(Number);
+    const md = p[1] + '月' + p[2] + '日';
+    return String(p[0]) === today().slice(0, 4) ? md : p[0] + '年' + md;
   }
 
   function teamNameOf(teamId) {
@@ -500,7 +507,15 @@
       box.appendChild(el('p', 'nl-empty', 'この年度と範囲の' + k.label + '成績はありません。'));
       return;
     }
-    list.slice(0, recs.limit).forEach(function (r) { box.appendChild(recordRow(r)); });
+    // 年が変わる境目に「2025年」の細い区切りを入れる（一番上が今年でないときは、一番上にも入れる。2026-11-15）
+    const thisYear = today().slice(0, 4);
+    let prevYear = thisYear;
+    list.slice(0, recs.limit).forEach(function (r) {
+      const year = String(r.game_date).slice(0, 4);
+      if (year !== prevYear) box.appendChild(el('p', 'nl-year-sep', year + '年'));
+      prevYear = year;
+      box.appendChild(recordRow(r));
+    });
     if (list.length > recs.limit) {
       $('rec-more-box').hidden = false;
       $('rec-more').textContent = 'もっと見る（残り' + (list.length - recs.limit) + '件）';
@@ -510,7 +525,7 @@
   function recordRow(r) {
     const row = el('div', 'nl-row');
     const main = el('div', 'nl-row__main');
-    main.appendChild(el('span', 'nl-row__name', dateLabel(r.game_date) + '　第' + r.game_number + '試合　' +
+    main.appendChild(el('span', 'nl-row__name', recDateLabel(r.game_date) + '　第' + r.game_number + '試合　' +
       (r.opponent ? 'vs ' + r.opponent : '（相手は未入力）')));
     if (r.tournament_name) main.appendChild(el('span', 'nl-badge', r.tournament_name));
     main.appendChild(el('span', 'nl-row__meta', teamNameOf(r.team_id)));
@@ -565,7 +580,7 @@
           ]).then(function () {
             loadCalendar(cal.view.month());
             // 消した行は無くなるので、お知らせは一覧の四角の一番下に出す
-            NinelogUI.showOk(k.label + '成績を消しました：' + dateLabel(r.game_date) + '　第' + r.game_number + '試合', $('rec-card'));
+            NinelogUI.showOk(k.label + '成績を消しました：' + recDateLabel(r.game_date) + '　第' + r.game_number + '試合', $('rec-card'));
           });
         }).catch(function (err) { NinelogUI.showError(err, row); });
       });

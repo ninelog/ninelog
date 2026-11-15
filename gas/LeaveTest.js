@@ -51,9 +51,16 @@ function testLeaveScenario_(results) {
   const names = function (r) { return r.categories.hits.rows.map(function (x) { return x.displayName; }).join(','); };
   results.push({ title: '退会の前：ランキングに2人', expected: 'まつい,おかだ', actual: names(act('getTeamRanking', { team_id: team.team_id }, o)) });
 
+  // 代表者にだけ、今の人数を返す（2026-11-15）
+  const countOf = function (user, id) { const t = act('listMyTeams', {}, user).teams.filter(function (x) { return x.teamId === id; })[0]; return t && typeof t.memberCount === 'number' ? t.memberCount : 'なし'; };
+  results.push({ title: '人数：代表者には、チームのメンバー2人（代表者を含む）・大会の参加者2人を返す', expected: '2/2', actual: countOf(o, team.team_id) + '/' + countOf(o, tour.team_id) });
+  results.push({ title: '人数：メンバーには返さない', expected: 'なし/なし', actual: countOf(m, team.team_id) + '/' + countOf(m, tour.team_id) });
+  results.push({ title: '人数：一覧の返事に、ほかの人のIDは入らない', expected: false, actual: JSON.stringify(act('listMyTeams', {}, o)).indexOf(m.userId) !== -1 });
+
   // ---------- 退会 ----------
   const left = act('leaveTeam', { team_id: team.team_id }, m);
   results.push({ title: 'メンバーは退会できる', expected: 'true/退会テストナイン', actual: left.left + '/' + (left.team && left.team.teamName) });
+  results.push({ title: '人数：退会した人は数に入れない（チームは1人、大会は2人のまま）', expected: '1/2', actual: countOf(o, team.team_id) + '/' + countOf(o, tour.team_id) });
   results.push({ title: '自分の一覧から消える（大会はそのまま）', expected: '退会テスト大会', actual: act('listMyTeams', {}, m).teams.map(function (t) { return t.teamName; }).join(',') });
   results.push({ title: 'ランキングには、今所属している人だけが載る', expected: 'おかだ', actual: names(act('getTeamRanking', { team_id: team.team_id }, o)) });
   //   チーム全体の成績には、退会した人の成績も残る（打数 4+4＝8、安打 1+3＝4）
