@@ -102,6 +102,18 @@ function testGameDetailScenario_(results) {
   results.push({ title: '個人用の記録の試合：本人は見られる（チーム名は「個人用の記録」）', expected: '個人用の記録/solo/1', actual: mine.game.team_name + '/' + mine.game.org_type + '/' + mine.batting.length });
   results.push({ title: '個人用の記録の試合：ほかの人は見られない', expected: 'FORBIDDEN', actual: codeOf(act('getGameDetail', { game_id: sg.game_id }, b)) });
 
+  // ---------- 前の試合・次の試合（2026-11-15） ----------
+  // チームの試合：g（11/1 第1）・other（11/2 第1）・g3（11/2 第2。だれも成績なし）。11/3 の試合は消した
+  const g3 = createTestGame_(a, team.team_id, '2026-11-02', T, { opponent: '南クラブ' });
+  const n1 = act('getGameDetail', { game_id: g.game_id }, a);
+  results.push({ title: '前後：いちばん古い試合は「前」が無く、「次」は次の日の試合', expected: 'null/' + other.game_id, actual: n1.prev + '/' + (n1.next && n1.next.game_id) });
+  const n2 = act('getGameDetail', { game_id: other.game_id }, a);
+  results.push({ title: '前後：同じ日は第何試合の順（第1試合の次は第2試合。成績が無い試合も入る）', expected: g.game_id + '/' + g3.game_id + '/2/南クラブ',
+    actual: (n2.prev && n2.prev.game_id) + '/' + (n2.next && n2.next.game_id) + '/' + (n2.next && n2.next.game_number) + '/' + (n2.next && n2.next.opponent) });
+  const n3 = act('getGameDetail', { game_id: g3.game_id }, b);
+  results.push({ title: '前後：いちばん新しい試合は「次」が無い（消した試合は入らない）', expected: other.game_id + '/null', actual: (n3.prev && n3.prev.game_id) + '/' + n3.next });
+  results.push({ title: '前後：個人用の記録の試合は、個人用の記録の中だけ（ほかに試合が無ければ前後なし）', expected: 'null/null', actual: mine.prev + '/' + mine.next });
+
   // ---------- まとめて送れる ----------
   const batched = act('batch', { requests: [{ action: 'getGameDetail', data: { game_id: g.game_id } }, { action: 'listMyTeams' }] }, a);
   results.push({ title: 'まとめて送る（batch）にも入れられる', expected: 'true/true', actual: batched.results.map(function (r) { return r.ok; }).join('/') });

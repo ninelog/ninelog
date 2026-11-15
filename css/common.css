@@ -546,3 +546,14 @@ body.nl-modal-open { overflow: hidden; }
 .nl-badge--win { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
 .nl-game__foot { text-align: center; margin: 0 0 16px; }
 #bat-sort { margin-bottom: 8px; }
+
+/* 試合の詳細：前の試合・次の試合（2026-11-15） */
+.nl-gamenav { display: flex; gap: 8px; margin: 0 0 16px; }
+.nl-gamenav__btn {
+  flex: 1; min-width: 0; min-height: 44px; padding: 8px 10px; border-radius: 10px;
+  border: 1px solid var(--accent); background: var(--card); color: var(--accent);
+  font-size: 13px; font-weight: 700; line-height: 1.4; cursor: pointer; word-break: break-all;
+}
+.nl-gamenav__btn--prev { text-align: left; }
+.nl-gamenav__btn--next { text-align: right; }
+.nl-gamenav__btn:disabled { border-color: var(--line); color: var(--sub); font-weight: 400; cursor: default; }

@@ -121,6 +121,13 @@ const NinelogCalendar = (function () {
       },
       /** 押せる範囲を変える */
       setRange: function (min, max) { opts.min = min; opts.max = max; render(); },
+      /** 出す月を変える（yyyy-MM。違う月なら onMonthChange を呼ぶ。2026-11-15：もどったときに前の月を出すため） */
+      setMonth: function (next) {
+        if (!/^\d{4}-\d{2}$/.test(String(next)) || next === month) return;
+        month = next;
+        render();
+        if (opts.onMonthChange) opts.onMonthChange(month);
+      },
     };
   }
 

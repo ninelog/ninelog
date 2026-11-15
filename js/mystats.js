@@ -30,15 +30,39 @@
   let shown = null; // いま画面に出している成績（GASの返事）
   const breakdown = NinelogBreakdown.create($('bd-card'), { withRecord: false }); // 相手別・大会別（C-6d）
 
-  function start() {
-    initCalendar();
-    return load({}).then(function () {
+  /**
+   * restored：「試合の詳細」から戻ってきたときの、開く前の状態（年度・範囲・入力した成績の種類と件数・カレンダーの月と日）。
+   * ふつうに開いたときは null。中身が出そろってから、ui.js がスクロールの位置を戻す（2026-11-15）
+   */
+  function start(restored) {
+    const r = restored || null;
+    if (r) {
+      if (r.recKind === 'batting' || r.recKind === 'pitching') recs.kind = r.recKind;
+      if (Number(r.recLimit) > 0) recs.limit = Number(r.recLimit);
+    }
+    const calReady = initCalendar(r);
+    const data = r ? Object.assign(r.season ? { season: r.season } : {}, scopeToData(r.scope || '')) : {};
+    // 戻ったときの範囲が使えなくなっていたら（退会したなど）、ふつうの最初の表示にする
+    const statsReady = load(data).catch(function (err) { if (r) return load({}); throw err; });
+    return Promise.all([calReady, statsReady]).then(function () {
       $('loading').hidden = true;
       $('content').hidden = false;
     }, function (err) {
       $('loading').hidden = true;
       NinelogUI.showError(err);
     });
+  }
+
+  /** 今の状態（「試合の詳細」を開く前に覚えておき、戻ったときに使う） */
+  function currentState() {
+    return {
+      season: $('season').value,
+      scope: $('scope').value,
+      recKind: recs.kind,
+      recLimit: recs.limit,
+      calMonth: cal.view ? cal.view.month() : '',
+      calSelected: cal.selected,
+    };
   }
 
   /** 選んでいる年度と範囲で、GASに成績を聞く */
@@ -64,7 +88,9 @@
 
   /** 選んでいる範囲を GAS に送る形にする（「team:ID」「tour:ID」「」） */
   function scopeData() {
-    const v = $('scope').value;
+    return scopeToData($('scope').value);
+  }
+  function scopeToData(v) {
     if (v.indexOf('team:') === 0) return { team_id: v.slice(5) };
     if (v.indexOf('tour:') === 0) return { tournament_id: v.slice(5) };
     return {};
@@ -327,18 +353,30 @@
     return p[1] + '月' + p[2] + '日（' + week + '）';
   }
 
-  function initCalendar() {
+  function initCalendar(restored) {
+    let quiet = false; // 戻ったときに月を合わせる間は、月の読み込みを重ねない
     cal.view = NinelogCalendar.create($('cal'), {
       max: today(), // 未来の日は押せない（試合は未来には作れない）
       onSelect: function (date) { cal.selected = date; renderDay(); },
-      onMonthChange: function (month) { loadCalendar(month); },
+      onMonthChange: function (month) { if (!quiet) loadCalendar(month); },
     });
+    // 「試合の詳細」から戻ったときは、前に見ていた月と、押していた日に戻す（2026-11-15）
+    if (restored) {
+      quiet = true;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(String(restored.calSelected || ''))) {
+        cal.selected = restored.calSelected;
+        cal.view.setSelected(restored.calSelected);
+      }
+      if (restored.calMonth) cal.view.setMonth(restored.calMonth);
+      quiet = false;
+    }
     renderDay();
-    loadMine().catch(function (err) { NinelogUI.showError(err, $('cal-card')); });
+    const mine = loadMine().catch(function (err) { NinelogUI.showError(err, $('cal-card')); });
     // 最初の範囲は「全チーム合計」なので、カレンダー（全チーム）も成績と同時に頼む。
     // 成績と1回の問い合わせにまとまり、GASとのやりとりが1往復減る（B-24。2026-11-15）
     cal.teamId = '';
-    loadCalendar(cal.view.month()).catch(function (err) { NinelogUI.showError(err, $('cal-card')); });
+    const marks = loadCalendar(cal.view.month()).catch(function (err) { NinelogUI.showError(err, $('cal-card')); });
+    return Promise.all([mine, marks]);
   }
 
   /**
@@ -463,6 +501,8 @@
   function gameDetailLink(gameId) {
     const a = el('a', 'nl-chip', '試合の詳細');
     a.href = 'game.html?game=' + encodeURIComponent(gameId);
+    // 戻ったときに、今の状態とスクロールの位置に戻せるように覚えておく（2026-11-15）
+    a.addEventListener('click', function () { NinelogUI.rememberReturn('mystats', currentState()); });
     return a;
   }
 

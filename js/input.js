@@ -89,7 +89,7 @@
     return link;
   }
 
-  function start() {
+  function start(restored) {
     const today = jstDate(0);
     state.max = today;
     state.min = jstDate(-30); // 試合日から30日以内だけ入力できる（4.5b章）
@@ -98,6 +98,13 @@
     // 「自分の成績」の記録カレンダーから来たとき（C-6b）：input.html?team=…&date=…&game=…&tab=pitching
     // その日・その試合を選んだ状態で開く。30日より前の日などは使わない
     const link = linkParams();
+    // 「試合の詳細」から戻ってきたときは、開く前に選んでいたチーム・日・試合・打撃／投手に戻す（2026-11-15）
+    if (restored) {
+      link.team = restored.team || link.team;
+      link.date = /^\d{4}-\d{2}-\d{2}$/.test(String(restored.date || '')) ? restored.date : link.date;
+      link.game = restored.game || link.game;
+      link.tab = restored.tab || link.tab;
+    }
     if (link.date && link.date >= state.min && link.date <= state.max) {
       state.date = link.date;
       state.selectedGameId = link.game;
@@ -125,7 +132,7 @@
       return Promise.resolve(showTeams(res.teams, link.team)).then(function () {
         // 試合を選んだ状態で開いたときは、成績の入力欄まで動かす
         // （開いたばかりなので、なめらかに動かさず、すぐに飛ぶ）
-        if (link.game && state.selectedGameId === link.game) {
+        if (!restored && link.game && state.selectedGameId === link.game) {
           $('record-card').scrollIntoView({ block: 'start' });
         }
       });
@@ -889,6 +896,13 @@
   $('tab-batting').addEventListener('click', function () { setRecordTab('batting'); });
   $('tab-pitching').addEventListener('click', function () { setRecordTab('pitching'); });
   $('btn-edit-game').addEventListener('click', openEdit);
+  // 「この試合の詳細を見る」：戻ったときに、今のチーム・日・試合・打撃／投手とスクロールの位置に戻せるように覚えておく（2026-11-15）
+  $('btn-game-detail').addEventListener('click', function () {
+    NinelogUI.rememberReturn('input', {
+      team: state.teamId, date: state.date, game: state.selectedGameId,
+      tab: $('pitching-form').hidden ? 'batting' : 'pitching',
+    });
+  });
   $('btn-edit-cancel').addEventListener('click', closeEdit);
   $('edit-game').addEventListener('submit', saveEdit);
   $('btn-delete-game').addEventListener('click', openDelete);

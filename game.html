@@ -8,6 +8,7 @@
   <!--
     試合の詳細（2026-11-15 利用者が追加。C-15。CLAUDE.md 11.12章）
     - game.html?game=試合のID で開く。その試合で、チームの誰が何打数何安打だったか（ランキングの「1試合ぶん」）と、投げた人の投球回・自責点
+    - 前の試合・次の試合のボタン（上と下の2か所）。移っても、ページの履歴は増やさない（「もどる」1回で、開く前の画面に戻る）
     - 入口：「自分の成績」の入力した成績の各行・記録カレンダーの試合の行、「成績を入力」で選んだ試合
     - 見られるのは、今そのチームのメンバーだけ（個人用の記録の試合は本人だけ）。GASの getGameDetail が決める
   -->
@@ -26,6 +27,9 @@
         <h2 class="nl-game__title" id="game-title"></h2>
         <div class="nl-badges" id="game-badges"></div>
       </section>
+
+      <!-- 前の試合・次の試合（2026-11-15。同じチームの試合を日付の順に並べたときの前後） -->
+      <nav class="nl-gamenav" id="nav-top" aria-label="前後の試合"></nav>
 
       <!-- 打撃 -->
       <section class="nl-card" id="bat-card">
@@ -58,6 +62,7 @@
       </section>
 
       <p class="nl-note nl-game__foot">まだ入力していない人は、ここに出ません。</p>
+      <nav class="nl-gamenav" id="nav-bottom" aria-label="前後の試合"></nav>
     </div>
   </main>
 

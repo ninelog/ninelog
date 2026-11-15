@@ -71,7 +71,22 @@ function handleGetGameDetail_(data, user) {
     };
   });
 
+  // 前の試合・次の試合（2026-11-15）：同じチーム（個人用の記録なら個人用の記録）の消していない試合を、
+  // 日付の順（同じ日なら第何試合の順）に並べたときの前後。自分が出ていない試合も入れる。見る権限は同じ（同じチームのため）
+  const siblings = activeGamesOf_(game.team_id).slice().sort(function (p, q) {
+    const pd = dateText_(p.game_date);
+    const qd = dateText_(q.game_date);
+    return pd < qd ? -1 : pd > qd ? 1 : (Number(p.game_number) - Number(q.game_number));
+  });
+  const index = siblings.map(function (x) { return x.game_id; }).indexOf(game.game_id);
+  const neighbor = function (x) {
+    if (!x) return null;
+    return { game_id: x.game_id, game_date: dateText_(x.game_date), game_number: Number(x.game_number), opponent: String(x.opponent || '') };
+  };
+
   return {
+    prev: neighbor(siblings[index - 1]),
+    next: neighbor(siblings[index + 1]),
     game: {
       game_id: game.game_id,
       team_id: game.team_id,

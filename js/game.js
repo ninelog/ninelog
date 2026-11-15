@@ -130,15 +130,62 @@
       return null;
     }
     return NinelogApp.call('getGameDetail', { game_id: gameId }).then(function (res) {
-      state.detail = res;
       $('loading').hidden = true;
       $('content').hidden = false;
-      renderGame();
-      renderBatting();
-      renderPitching();
+      show(res);
     }).catch(function (err) {
       $('loading').hidden = true;
       NinelogUI.showError(err);
+    });
+  }
+
+  function show(res) {
+    state.detail = res;
+    renderGame();
+    renderBatting();
+    renderPitching();
+    renderNav();
+  }
+
+  /* ---------- 前の試合・次の試合（2026-11-15） ----------
+   * 同じチーム（個人用の記録なら個人用の記録）の試合を、日付の順（同じ日は第何試合の順）に並べたときの前後（GASが決める）。
+   * 押すと、この画面のまま中身を入れ替え、アドレスも入れ替える（履歴は増やさない）。
+   * そのため、何試合移っても「もどる」1回で、試合の詳細を開く前の画面に戻る。
+   */
+  function shortDate(text) {
+    const p = String(text).split('-').map(Number);
+    return p[1] + '/' + p[2];
+  }
+
+  function navLabel(n, dir) {
+    if (!n) return dir === 'prev' ? '‹ 前の試合はありません' : '次の試合はありません ›';
+    const what = shortDate(n.game_date) + (n.opponent ? ' vs ' + n.opponent : '（相手は未入力）');
+    return dir === 'prev' ? '‹ 前の試合 ' + what : '次の試合 ' + what + ' ›';
+  }
+
+  function renderNav() {
+    const d = state.detail;
+    ['nav-top', 'nav-bottom'].forEach(function (id) {
+      const box = $(id);
+      box.innerHTML = '';
+      [['prev', d.prev], ['next', d.next]].forEach(function (p) {
+        const b = el('button', 'nl-gamenav__btn nl-gamenav__btn--' + p[0], navLabel(p[1], p[0]));
+        b.type = 'button';
+        b.disabled = !p[1];
+        if (p[1]) b.addEventListener('click', function () { moveTo(p[1].game_id, b); });
+        box.appendChild(b);
+      });
+    });
+  }
+
+  function moveTo(gameId, button) {
+    NinelogUI.clearAlerts($('nav-top'));
+    NinelogUI.withBusy(button, function () {
+      return NinelogApp.call('getGameDetail', { game_id: gameId }).then(function (res) {
+        try { history.replaceState(history.state, '', location.pathname + '?game=' + encodeURIComponent(gameId)); } catch (e) { /* そのまま */ }
+        show(res);
+        window.scrollTo(0, 0);
+      }).catch(function (err) { NinelogUI.showError(err, $('nav-top')); });
     });
   }
 
